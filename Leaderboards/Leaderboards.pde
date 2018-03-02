@@ -233,16 +233,16 @@ class GameScreen {
     
     //MOVE PLAYER
     void moveUp() {
-      ypos = constrain(ypos - s, 0, height);
+      ypos = constrain(ypos - s, 0 + radius, height - radius);
     }
     void moveDown() {
-      ypos = constrain(ypos + s, 0, height - 21);
+      ypos = constrain(ypos + s, 0 + radius, height - radius);
     }
     void moveLeft() {
-      xpos = constrain(xpos - s, 0, width);
+      xpos = constrain(xpos - s, 0 + radius, width - radius);
     }
     void moveRight() {
-      xpos = constrain(xpos + s, 0, width - 21);
+      xpos = constrain(xpos + s, 0 + radius, width - radius);
     }
  
     void display() {
