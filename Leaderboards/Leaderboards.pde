@@ -8,6 +8,9 @@ MenuScreen menu;
 Leaderboard lb;
 int switcher = 0;
 
+boolean up = false, down = false, right = false, left = false;
+String[] hazardTypes = {"sine", "straight", "zigzag"};
+
 void setup() {
   game = new GameScreen();
   lb = new Leaderboard();
@@ -57,6 +60,38 @@ void mousePressed() {
   println(mouseX, mouseY);
 }
 
+void keyPressed() {
+      switch (key) {
+        case 'w':
+          up = true;
+          break;
+        case 's':
+          down = true;
+          break;
+        case 'a':
+          left = true;
+          break;
+        case 'd':
+          right = true;
+      }
+    }
+
+     void keyReleased() {
+      switch (key) {
+        case 'w':
+          up = false;
+          break;
+        case 's':
+          down = false;
+          break;
+        case 'a':
+          left = false;
+          break;
+        case 'd':
+          right = false;
+      }  
+    }
+
 /********************************************************
 * Class for the Game Screen
 *
@@ -81,7 +116,7 @@ class GameScreen {
     score = 0;
     hazardSpeed = 4.0;
     
-    p1 = new Player(50.0, 350.0, 20.0, 0);
+    p1 = new Player(50.0, 350.0, 20.0, 4);
     hazards = new ArrayList<Hazard>();
     
     paused = false;
@@ -102,7 +137,7 @@ class GameScreen {
   
     if (newTime - time >= 500) {
       hazardSpeed += .1;
-      hazards.add(new Hazard(850.0, random(25, 775), 30.0, 0.0));
+      hazards.add(new Hazard(850.0, random(25, 775), 30.0, hazardTypes[(int)random(0,3)]));
       time = newTime;
       return true;
     }
@@ -182,15 +217,46 @@ class GameScreen {
     float xpos;
     float ypos;
     float radius;
+    float s;
     color c = #0000ff;
+    
+    
  
     Player(float x, float y, float r, float s) {
       xpos = x;
       ypos = y;
       radius = r;
+      this.s = s;
+    }
+    
+    
+    
+    //MOVE PLAYER
+    void moveUp() {
+      ypos = constrain(ypos - s, 0, height);
+    }
+    void moveDown() {
+      ypos = constrain(ypos + s, 0, height - 21);
+    }
+    void moveLeft() {
+      xpos = constrain(xpos - s, 0, width);
+    }
+    void moveRight() {
+      xpos = constrain(xpos + s, 0, width - 21);
     }
  
     void display() {
+      //PlayerMovement Start
+      if(up)
+        moveUp();
+      if(down)
+        moveDown();
+      if(right)
+        moveRight();
+      if(left)
+        moveLeft();
+      //Player Movement End
+
       fill(c);
       ellipse(xpos, ypos, radius, radius);
     }
@@ -204,19 +270,34 @@ class GameScreen {
     float xpos;
     float ypos;
     float radius;
+    String type;
     color c = #00ff00;
  
-    Hazard(float x, float y, float r, float s) {
+    Hazard(float x, float y, float r, String type) {
       xpos = x;
       ypos = y;
       radius = r;
+      this.type = type;
     }
  
     void display(float hazardSpeed) {
       fill(c);
+      switch (type) {
+        case "sine":
+          xpos -= hazardSpeed;
+          ypos += sin((xpos / 30)) * hazardSpeed * 1.5;
+          break;
+        case "straight":
+          xpos -= hazardSpeed;
+          break;
+        case "zigzag":
+          xpos -= hazardSpeed;
+          if (xpos % 400 < 200)
+            ypos += 4;
+          else
+            ypos -= 4;
+      }
       ellipse(xpos, ypos, radius, radius);
-      xpos -= hazardSpeed;
-      ypos += sin((xpos / 30)) * hazardSpeed * 1.5;
     }
   }
   /*-------------------------------------------------------------*/
@@ -306,3 +387,5 @@ class Leaderboard {
     }
   }
 }
+
+// -------------------------- Player Movement -----------------------------------
