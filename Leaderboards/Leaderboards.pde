@@ -1,4 +1,3 @@
-// To Here
 import de.bezier.data.sql.*;
   
 MySQL mysql;
@@ -9,17 +8,18 @@ MenuScreen menu;
 Leaderboard lb;
 int switcher = 0;
 
-boolean up = false, down = false, right = false, left = false, gameOver = false;
+boolean up = false, down = false, right = false, left = false, gameOver = false, lbConnection = false, highScore = false, initInput = false; //<>//
 String[] hazardTypes = {"sine", "straight", "zigzag"};
-String[] hazardShapes = {"circle", "rectangle", "wall"};
+String initials = "";
 
-void setup() {
-  game = new GameScreen();
+void setup() { //<>//
+  game = new GameScreen(); //<>//
   lb = new Leaderboard();
   menu = new MenuScreen();
   
   // Grabs this sketch id? for database connection. idk just works
   p = this;
+  lb.connect(p);
   
   ellipseMode(RADIUS);
   size(800,600);
@@ -28,13 +28,13 @@ void setup() {
    
 }
 
-void draw() {
+void draw() { //<>//
   switch (switcher) {
     // Display menu here
     case 0: menu.display(); break;
     
-    // While the game is happening, display game screen
-    case 1: if (true) game.display(); break;
+    // Display game screen
+    case 1: game.display(); break;
     
     // Display Leaderboards here
     case 2: lb.display(); break;
@@ -43,59 +43,92 @@ void draw() {
 
 void mousePressed() {
   if (switcher == 0 && mouseX > 100 && mouseX < 165 && mouseY > 70 && mouseY < 110) {
-    switcher = 1;
+    switcher = 1;  // Play button from Main Menu
   }
   if (switcher == 0 && mouseX > 100 && mouseX < 300 && mouseY > 175 && mouseY < 200) {
-    switcher = 2;
-    lb.connect(p);
+    switcher = 2;  // Leaderboards button from Main Menu
+    
   }
   if (switcher == 0 && mouseX > 100 && mouseX < 160 && mouseY > 270 && mouseY < 310) {
-    exit();
+    exit();  // Quit button from Main Menu
     lb.disconnect();
   }
   if (switcher == 2 && mouseX > 300 && mouseX < 555 && mouseY > 545 && mouseY < 570) {
-    switcher = 0;
+    switcher = 0;  // Main Menu button from Leaderboards
   }
-  // play: 100 < x < 165, 70 < y < 110
-  // leaderboards: 100 < x < 300, 175 < y < 200
-  // quit: 100 < x < 160, 270 < y < 310
+  if (switcher == 1 && gameOver && mouseX > 100 && mouseX < 250 && mouseY > 275 && mouseY < 300) {
+    game = new GameScreen();  // Play again button from Popup
+    gameOver = false;
+    highScore = false;
+    switcher = 1;
+    initials = "";
+  }
+  if (switcher == 1 && gameOver && mouseX > 100 && mouseX < 260 && mouseY > 375 && mouseY < 400) {
+    switcher = 0;  // Main Menu button from Popup
+    gameOver = false;
+    highScore = false;
+    game = new GameScreen();
+    initials = "";
+  }
+  if (switcher == 1 && gameOver && highScore && mouseX > 100 && mouseX < 380 && mouseY > 175 && mouseY < 200) {
+    initials = "";  // Click to enter initials if you got a high score
+    initInput = true;
+  }
+  if (switcher == 1 && gameOver && highScore && mouseX > 450 && mouseX < 745 && mouseY > 175 && mouseY < 200) {
+    lb.updateScore(game.score, initials);
+  }
   println(mouseX, mouseY);
 }
 
 void keyPressed() {
+  if (!gameOver) {
       switch (key) {
         case 'w':
-          up = true;
-          break;
+          up = true; break;
         case 's':
-          down = true;
-          break;
+          down = true; break;
         case 'a':
-          left = true;
-          break;
+          left = true; break;
         case 'd':
-          right = true;
+          right = true; break;
+      }
+  }
+}
+
+void keyReleased() {
+  if (!gameOver) {
+    switch (key) {
+      case 'w':
+        up = false; break;
+      case 's':
+        down = false; break;
+      case 'a':
+        left = false; break;
+      case 'd':
+        right = false;
+    }
+  }
+}
+
+void keyTyped() {
+  if (initInput) {
+    if (initials.length() < 3) {
+      if ((key >= 'A' && key <= 'Z') || (key >= 'a' && key <= 'z')) {
+        initials += key;
       }
     }
-
-     void keyReleased() {
-      switch (key) {
-        case 'w':
-          up = false;
-          break;
-        case 's':
-          down = false;
-          break;
-        case 'a':
-          left = false;
-          break;
-        case 'd':
-          right = false;
-      }  
+    else {
+      lb.updateScore(game.score, initials);
     }
+  }
+}
 
-/*------------------------------------------ Game Screen Class -----------------------------------------------*/
-
+/********************************************************
+* Class for the Game Screen
+*
+*
+*
+*********************************************************/
 class GameScreen {
   int score;
   int time;
@@ -103,11 +136,13 @@ class GameScreen {
  
   Player p1;
   ArrayList<Hazard> hazards;
+  Popup pop = new Popup();
  
   boolean paused;
  
   PFont f;
-  
+ 
+  // GameScreen Constuctor
   GameScreen() {
     time = millis();
     score = 0;
@@ -122,133 +157,6 @@ class GameScreen {
     textFont(f, 24);
   }
  
-  /*---------------------- Inner Classes For Game Screen ---------------------------*/  
-  
-  /* ----------------- Game Objects --------------------*/
-  
-  class GameObject {
-    float xpos, ypos, xradius, yradius;
-    String shape;
-    
-    /*******************************************
-    * Game Object Constructor
-    *******************************************/
-    GameObject(float xpos, float ypos, float xradius, float yradius, String shape) {
-      this.xpos = xpos;
-      this.ypos = ypos;
-      this.xradius = xradius;
-      this.yradius = yradius;
-      this.shape = shape;
-    }
-    
-    /*******************************************
-    * Displays Game Objects
-    *******************************************/
-    void display() {
-      switch (shape) {
-        case "rectangle":
-          rect(xpos, ypos, xradius, yradius);
-          break;
-        case "circle":
-          ellipse(xpos, ypos, xradius, xradius);
-          break;
-        case "wall":
-          rect(xpos, ypos, xradius, yradius);
-      }
-    }
-  }
-  
-  /* ----------------- Player Object --------------------*/
-  
-  class Player extends GameObject {
-    float s;
-    color c = #cccccc;
-    
-    /*******************************************
-    * Player Consctructor
-    * x-positiom y-position, radius, speed
-    *******************************************/
-    Player(float x, float y, float r, float s) {
-      super(x, y, r, r, "rectangle");
-      this.s = s;
-    }
-
-   /*******************************************
-   * Display Player
-   *******************************************/
-    void move() {
-      if (!gameOver) {
-        if(up)
-          ypos = constrain(ypos - s, 0 + yradius, height - yradius);
-        if(down)
-          ypos = constrain(ypos + s, 0 + yradius, height - yradius);
-        if(right)
-          xpos = constrain(xpos + s, 0 + xradius, width - xradius);
-        if(left)
-          xpos = constrain(xpos - s, 0 + xradius, width - xradius);
-      }
-    }
- 
-    /*******************************************
-    * Display Player
-    * Calls: Player.move
-    *******************************************/
-    void display() {
-      move();
-      fill(c);
-      super.display();
-    }
-  }
-
-  /* ----------------- Hazard Objects --------------------*/
-  
-  class Hazard extends GameObject {
-    String path;
-    color c = #2e2e2e;
- 
-    /*******************************************
-    * Hazard Constructor
-    * x-position, y-position, x-radius, y-radius,
-    *  path, shape
-    *******************************************/
-    Hazard(float x, float y, float xr, float yr, String path, String shape) {
-      super(x, y, xr, yr, shape);
-      this.path = path;
-    }
-    
-    /*******************************************
-    * Displays Hazard
-    *******************************************/
-    void display(float hazardSpeed) {
-      fill(c);
-      
-      switch (path) {
-        case "sine":
-          xpos -= hazardSpeed;
-          ypos += sin((xpos / 30)) * hazardSpeed * 1.5;
-          break;
-        case "straight":
-          xpos -= hazardSpeed;
-          break;
-        case "zigzag":
-          xpos -= hazardSpeed;
-          if (xpos % 400 < 200)
-            ypos += 4;
-          else
-            ypos -= 4;
-      }
-      super.display();
-    }
-    
-    void hazardMovement(float hazardSpeed) {
-       
-    }
-    
-  }
-  
-  /*-------------------------- Hazard Creation --------------------------------*/ 
- 
- 
   /*****************************************************************
   * Checks the time since last object has been generated.
   * If delta(time) >= 1/2 second, create new hazard off screen
@@ -261,10 +169,7 @@ class GameScreen {
   
     if (newTime - time >= 500) {
       hazardSpeed += .1;
-     // hazards.add(new Hazard(850.0, random(25, 775), 30.0, 30.0, 
-      //              hazardTypes[(int)random(0,3)], hazardShapes[(int)random(0,3)]));
-      hazards.add(new Hazard(850.0, random(25, 775), 30.0, 30.0, 
-                    hazardTypes[(int)random(0,3)], hazardShapes[2]));
+      hazards.add(new Hazard(850.0, random(25, 775), 30.0, hazardTypes[(int)random(0,3)]));
       time = newTime;
       return true;
     }
@@ -277,11 +182,9 @@ class GameScreen {
   * Calls GameScreen.displayHazards, Player.display, GameScreen.timeCheck
   *******************************************************/
   void display() {
-    while (paused) {
-      if (mousePressed)
-        paused = false;
-    }
-    background(#a5a5a5);
+    
+    background(#0069b1);
+    //println(hazards.size());
     
     text(score, 10, 25);
     
@@ -300,42 +203,14 @@ class GameScreen {
     Hazard h;
     for (int i = 0; i < hazards.size(); i++) {
       h = hazards.get(i);
-      if ( h.xpos < 0 - h.xradius) {
+      if ( h.xpos < 0 - h.radius) {
         hazards.remove(i);
         score += 100 * (int)hazardSpeed / 4;
       } else {
         h.display(hazardSpeed);
-        intersectCheck(p1, h);
-        //print(h.shape + "\n");
+        circleIntersects(h, p1);
       }
     }
-  }
-  
-  /* ------------------------- Collision Detection ----------------------- */
-  
-  boolean intersectCheck(Player p, Hazard h) {
-    boolean intersect;
-
-    switch (h.shape) {
-      case "rectangle":
-        intersect = twoRectangleCollision(p, h);
-        break;
-      case "circle":
-        intersect = rectCircCollision(p, h);     
-        break;
-      case "wall":
-        intersect = twoRectangleCollision(p, h);
-      default:
-        intersect = false;
-    };
-    
-   if (intersect) {
-     gameOver = true;
-     paused = true;
-     //pop.display();
-   }
-    
-   return intersect; 
   }
   
   /************************************************
@@ -344,68 +219,168 @@ class GameScreen {
   *
   * Returns true if they are and pauses the game
   *************************************************/
-  boolean circleIntersects(Player p, Hazard h) {
-    float difX = h.xpos - p.xpos;
-    float difY = h.ypos - p.ypos;
+  boolean circleIntersects(Hazard h1, Player p1) {
+    float difX = h1.xpos - p1.xpos;
+    float difY = h1.ypos - p1.ypos;
     
     float dist = sqrt(sq(difX) + sq(difY));
     
-    if (dist < h.xradius + p.xradius) {
-       p.c = #ff0000;
+    if (dist < h1.radius + p1.radius) {
+       p1.c = #ff0000;
        hazardSpeed = 0;
-       paused = true;
        gameOver = true;
+       paused = true;
+       pop.display();
        return true;
     }
     else return false;
   }
+
+  /*------------------------------------------------------------*/
+  // Inner Classes For Game Screen
   
-  boolean twoRectangleCollision(GameObject player, GameObject hazard) {
-    float px, py, pxrad, pyrad, hx, hy, hxrad, hyrad;
-    px = player.xpos; py = player.ypos; pxrad = player.xradius; pyrad = player.yradius;
-    hx = hazard.xpos; hy = hazard.ypos; hxrad = hazard.xradius; hyrad = hazard.yradius;
+  
+  /*******************************************
+  * Player Class
+  * Holds all variables of a player object
+  *******************************************/
+  class Player {
+    float xpos;
+    float ypos;
+    float radius;
+    float s;
+    color c = #0000ff;
     
     
-    if ( hx > px + pxrad || hx + hxrad < px || hy + hyrad < py || hy > py + pyrad) {
-      return false;
+ 
+    Player(float x, float y, float r, float s) {
+      xpos = x;
+      ypos = y;
+      radius = r;
+      this.s = s;
     }
-    else {
-      return true;
+    
+    
+    
+    //MOVE PLAYER
+    void moveUp() {
+      ypos = constrain(ypos - s, 0 + radius, height - radius);
+    }
+    void moveDown() {
+      ypos = constrain(ypos + s, 0 + radius, height - radius);
+    }
+    void moveLeft() {
+      xpos = constrain(xpos - s, 0 + radius, width - radius);
+    }
+    void moveRight() {
+      xpos = constrain(xpos + s, 0 + radius, width - radius);
+    }
+ 
+    void display() {
+      //PlayerMovement Start
+      if (!gameOver) {
+        if(up)
+          moveUp();
+        if(down)
+          moveDown();
+        if(right)
+          moveRight();
+        if(left)
+          moveLeft();
+      }
+      //Player Movement End
+
+      fill(c);
+      ellipse(xpos, ypos, radius, radius);
     }
   }
-  
-  boolean rectCircCollision(GameObject r, GameObject c) {
-    float detectPointx, detectPointy;
-    float cx, cy, cr, rx, ry; 
-    
-    cx = c.xpos; cy = c.ypos; cr = c.xradius;
-    rx = r.xpos; ry = r.ypos;
-    
-    if(cx < rx)
-      detectPointx = rx;
-    else if ( cx > rx + r.xradius)
-      detectPointx = rx + r.xradius;
-    else
-      detectPointx = cx;
-    
-    if(cy < ry)
-      detectPointy = ry;
-    else if ( cy > ry + r.yradius)
-      detectPointy = ry + r.yradius;
-    else
-      detectPointy = cy;
 
-   if (sqrt(sq(detectPointx - cx) + sq(detectPointy - cy)) < c.xradius)
-     return true;
-   else 
-     return false;
+  /*******************************************
+  * Hazard Class
+  * Holds all variables of a hazard object
+  *******************************************/
+  class Hazard {
+    float xpos;
+    float ypos;
+    float radius;
+    String type;
+    color c = #00ff00;
+ 
+    Hazard(float x, float y, float r, String type) {
+      xpos = x;
+      ypos = y;
+      radius = r;
+      this.type = type;
+    }
+ 
+    void display(float hazardSpeed) {
+      fill(c);
+      switch (type) {
+        case "sine":
+          xpos -= hazardSpeed;
+          ypos += sin((xpos / 30)) * hazardSpeed * 1.5;
+          break;
+        case "straight":
+          xpos -= hazardSpeed;
+          break;
+        case "zigzag":
+          xpos -= hazardSpeed;
+          if (xpos % 400 < 200)
+            ypos += 4;
+          else
+            ypos -= 4;
+      }
+      ellipse(xpos, ypos, radius, radius);
+    }
+  }
+  /*******************************************
+  * Popup Class
+  * Holds all variables of the popup menu after game
+  *******************************************/
+  class Popup {
+    Popup() {
+      
+    }
+    
+    void display() {
+      background(#0069b1);
+      if (lbConnection) {
+        if (lb.scoreCheck(score)) {
+          highScore = true;
+          textSize(32);
+          text("You Made The Leaderboards with " + score + " points!", 100, 50);
+          text("Click to enter initials", 100, 200);
+          text("Click to submit score", 450, 200);
+          text(initials, 400, 100);        
+          text("Play again", 100, 300);
+          text("Main menu", 100, 400);
+        }
+        else {
+          textSize(32);
+          text("Your scored " + score + " points!", 100, 50);
+          text("Play again", 100, 300);
+          text("Main menu", 100, 400);
+        }
+      }
+      else {
+        textSize(32);
+        text("Your scored " + score + " points!", 100, 50);
+        text("Play again", 100, 300);
+        text("Main menu", 100, 400);
+        textSize(20);
+        text("Leaderboards unavailable", 500, 50);
+      }
+    }
   }
   
 }
 
-  
-/*----------------------------------------- Menu Screen -------------------------------------------*/
-
+/********************************************************
+* Class for the Game's Menu Screen
+*
+*
+*
+*********************************************************/
 class MenuScreen {
   String play = "play";
   String lb = "leaderboards"; // Strings to be displayed in menu
@@ -421,14 +396,18 @@ class MenuScreen {
   }
 }
 
-/*------------------------------------- Leaderboards Screen ---------------------------------------*/
-
+/********************************************************
+* Class for the Leaderboard Screen
+*
+*
+*
+*********************************************************/
 class Leaderboard {
   String inits;
   int pts;
   
   /********************************************************
-  * Class for connecting to an SQL database
+  * method for connecting to an SQL database
   * 
   *********************************************************/
   void connect(processing.core.PApplet papplet) {
@@ -440,6 +419,9 @@ class Leaderboard {
  
     if (!mysql.connect()) {
       println("Connection failed, leaderboards unavailable");
+    }
+    else {
+      lbConnection = true;
     }
   }
   
@@ -479,4 +461,46 @@ class Leaderboard {
       xOffset = 400;
     }
   }
+  
+  boolean scoreCheck(int s) {
+    boolean result = false;
+    mysql.query("select count(*) from Leaderboard");
+    if (mysql.next()) {
+      if (mysql.getInt(1) < 20) {
+        result = true;
+      }
+      else {
+        mysql.query("select distinct min(points) from Leaderboard");
+          if (mysql.next()) {
+            if (s > mysql.getInt(1)) {
+              result = true;
+            }
+            else {
+              result = false;
+            }
+          }
+      }
+    }
+    return result;
+  }
+  
+  void updateScore(int s, String init) {
+    mysql.query("select count(*) from Leaderboard");
+    if (mysql.next()) {
+      if (mysql.getInt(1) < 20) {
+        mysql.query("insert into Leaderboard values('" + init + "'," + s + ")");
+      }
+      else {
+        mysql.query("select distinct min(points) from Leaderboard");
+          if (mysql.next()) {
+            if (s > mysql.getInt(1)) {
+              mysql.query("delete from Leaderboard where points = (select points from (select distinct min(points) as minPoints from Leaderboard) as L)");
+              mysql.query("insert into Leaderboard values('" + init + "'," + s + ")");
+            }
+          }
+      }
+    }
+  }
 }
+
+// -------------------------- Player Movement -----------------------------------

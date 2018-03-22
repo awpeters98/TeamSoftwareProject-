@@ -4,10 +4,13 @@ import de.bezier.data.sql.*;
 MySQL mysql;
 processing.core.PApplet p;
 
-boolean up = false, down = false, right = false, left = false, gameOver = false;
+boolean up = false, down = false, right = false, left = false, 
+  gameOver = false, lbConnection = false, highScore = false, initInput = false;
+String initials = "";
 
 GameScreen game;
 MenuScreen menu;
+Popup pop;
 Leaderboard lb;
 int switcher = 0;
 
@@ -41,56 +44,124 @@ void draw() {
 
 void mousePressed() {
   if (switcher == 0 && mouseX > 100 && mouseX < 165 && mouseY > 70 && mouseY < 110) {
-    switcher = 1;
+    switcher = 1;  // Play button from Main Menu
   }
   if (switcher == 0 && mouseX > 100 && mouseX < 300 && mouseY > 175 && mouseY < 200) {
-    switcher = 2;
-    lb.connect(p);
+    switcher = 2;  // Leaderboards button from Main Menu
+    
   }
   if (switcher == 0 && mouseX > 100 && mouseX < 160 && mouseY > 270 && mouseY < 310) {
-    exit();
+    exit();  // Quit button from Main Menu
     lb.disconnect();
   }
   if (switcher == 2 && mouseX > 300 && mouseX < 555 && mouseY > 545 && mouseY < 570) {
-    switcher = 0;
+    switcher = 0;  // Main Menu button from Leaderboards
   }
-  // play: 100 < x < 165, 70 < y < 110
-  // leaderboards: 100 < x < 300, 175 < y < 200
-  // quit: 100 < x < 160, 270 < y < 310
+  if (switcher == 1 && gameOver && mouseX > 100 && mouseX < 250 && mouseY > 275 && mouseY < 300) {
+    game = new GameScreen();  // Play again button from Popup
+    gameOver = false;
+    highScore = false;
+    switcher = 1;
+    initials = "";
+  }
+  if (switcher == 1 && gameOver && mouseX > 100 && mouseX < 260 && mouseY > 375 && mouseY < 400) {
+    switcher = 0;  // Main Menu button from Popup
+    gameOver = false;
+    highScore = false;
+    game = new GameScreen();
+    initials = "";
+  }
+  if (switcher == 1 && gameOver && highScore && mouseX > 100 && mouseX < 380 && mouseY > 175 && mouseY < 200) {
+    initials = "";  // Click to enter initials if you got a high score
+    initInput = true;
+  }
+  if (switcher == 1 && gameOver && highScore && mouseX > 450 && mouseX < 745 && mouseY > 175 && mouseY < 200) {
+    lb.updateScore(game.score, initials);
+  }
   println(mouseX, mouseY);
 }
 
 void keyPressed() {
-      switch (key) {
-        case 'w':
-          up = true;
-          break;
-        case 's':
-          down = true;
-          break;
-        case 'a':
-          left = true;
-          break;
-        case 'd':
-          right = true;
+  switch (key) {
+    case 'w':
+      up = true;
+      break;
+    case 's':
+      down = true;
+      break;
+    case 'a':
+      left = true;
+      break;
+    case 'd':
+     right = true;
+  }
+}
+
+void keyReleased() {
+  switch (key) {
+    case 'w':
+      up = false;
+      break;
+    case 's':
+      down = false;
+      break;
+    case 'a':
+      left = false;
+      break;
+    case 'd':
+      right = false;
+  }  
+}
+
+void keyTyped() {
+  if (initInput) {
+    if (initials.length() < 3) {
+      if ((key >= 'A' && key <= 'Z') || (key >= 'a' && key <= 'z')) {
+        initials += key;
       }
     }
-
-     void keyReleased() {
-      switch (key) {
-        case 'w':
-          up = false;
-          break;
-        case 's':
-          down = false;
-          break;
-        case 'a':
-          left = false;
-          break;
-        case 'd':
-          right = false;
-      }  
+    else {
+      lb.updateScore(game.score, initials);
     }
+  }
+}
+
+/*------------- Popup Class -----------------*/
+  class Popup {
+    Popup() {
+      
+    }
+    
+    void display() {
+      background(#0069b1);
+      if (lbConnection) {
+        if (lb.scoreCheck(game.score)) {
+          highScore = true;
+          textSize(32);
+          text("You Made The Leaderboards with " + game.score + " points!", 100, 50);
+          text("Click to enter initials", 100, 200);
+          text("Click to submit score", 450, 200);
+          text(initials, 400, 100);        
+          text("Play again", 100, 300);
+          text("Main menu", 100, 400);
+        }
+        else {
+          textSize(32);
+          text("Your scored " + game.score + " points!", 100, 50);
+          text("Play again", 100, 300);
+          text("Main menu", 100, 400);
+        }
+      }
+      else {
+        textSize(32);
+        text("Your scored " + game.score + " points!", 100, 50);
+        text("Play again", 100, 300);
+        text("Main menu", 100, 400);
+        textSize(20);
+        text("Leaderboards unavailable", 500, 50);
+      }
+    }
+  }
 
 /*------------------------------------------ Game Screen Class -----------------------------------------------*/
 
@@ -110,6 +181,8 @@ class GameScreen {
   boolean paused;
  
   PFont f;
+ 
+  Popup pop;
   
   GameScreen() {
     time = millis();
@@ -123,7 +196,10 @@ class GameScreen {
     
     f = createFont("Arial", 26, true);
     textFont(f, 24);
-  }
+  
+    pop = new Popup();
+}
+  
  
   /*---------------------- Inner Classes For Game Screen ---------------------------*/  
   
@@ -207,7 +283,7 @@ class GameScreen {
     }
 
    /*******************************************
-   * Mover Player
+   * Move Player
    *******************************************/
     void move() {
       if (!gameOver) {
@@ -337,18 +413,16 @@ class GameScreen {
   * Calls GameScreen.displayHazards, Player.display, GameScreen.timeCheck
   *******************************************************/
   void display() {
-    while (paused) {
-      if (mousePressed)
-        paused = false;
-    }
-    background(#a5a5a5);
+    if (!gameOver) {
+      background(#a5a5a5);
     
-    text(score, 10, 25);
+      text(score, 10, 25);
     
-    distanceCheck();
+      distanceCheck();
 
-    displayHazards();
-    p1.display();
+      displayHazards();
+      p1.display();
+    }
   }
   
   /*******************************************
@@ -396,7 +470,7 @@ class GameScreen {
    if (intersect) {
      gameOver = true;
      paused = true;
-     //pop.display();
+     pop.display();
    }
     
    return intersect; 
@@ -548,7 +622,7 @@ class Leaderboard {
   int pts;
   
   /********************************************************
-  * Class for connecting to an SQL database
+  * method for connecting to an SQL database
   * 
   *********************************************************/
   void connect(processing.core.PApplet papplet) {
@@ -560,6 +634,9 @@ class Leaderboard {
  
     if (!mysql.connect()) {
       println("Connection failed, leaderboards unavailable");
+    }
+    else {
+      lbConnection = true;
     }
   }
   
@@ -597,6 +674,46 @@ class Leaderboard {
       }
       yOffset = 0;
       xOffset = 400;
+    }
+  }
+  
+  boolean scoreCheck(int s) {
+    boolean result = false;
+    mysql.query("select count(*) from Leaderboard");
+    if (mysql.next()) {
+      if (mysql.getInt(1) < 20) {
+        result = true;
+      }
+      else {
+        mysql.query("select distinct min(points) from Leaderboard");
+          if (mysql.next()) {
+            if (s > mysql.getInt(1)) {
+              result = true;
+            }
+            else {
+              result = false;
+            }
+          }
+      }
+    }
+    return result;
+  }
+  
+  void updateScore(int s, String init) {
+    mysql.query("select count(*) from Leaderboard");
+    if (mysql.next()) {
+      if (mysql.getInt(1) < 20) {
+        mysql.query("insert into Leaderboard values('" + init + "'," + s + ")");
+      }
+      else {
+        mysql.query("select distinct min(points) from Leaderboard");
+          if (mysql.next()) {
+            if (s > mysql.getInt(1)) {
+              mysql.query("delete from Leaderboard where points = (select points from (select distinct min(points) as minPoints from Leaderboard) as L)");
+              mysql.query("insert into Leaderboard values('" + init + "'," + s + ")");
+            }
+          }
+      }
     }
   }
 }
