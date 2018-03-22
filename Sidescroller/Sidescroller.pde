@@ -174,15 +174,14 @@ class GameScreen {
   float hazardSpeed;
  
   Player p1;
-  ArrayList<Hazard> hazards;
+  ArrayList<Hazard> hazards; ArrayList<PowerUp> powerUps;
   String[] hazardTypes = {"sine", "straight", "zigzag"};
   String[] hazardShapes = {"circle", "rectangle", "wall", "spinner"};
  
-  boolean paused;
+  boolean paused, shielded;
  
   PFont f;
- 
-  Popup pop;
+  PImage shield, speed;
   
   GameScreen() {
     time = millis();
@@ -191,11 +190,14 @@ class GameScreen {
     
     p1 = new Player(50.0, 350.0, 20.0, 4);
     hazards = new ArrayList<Hazard>();
+    powerUps = new ArrayList<PowerUp>();
     
     paused = false;
     
     f = createFont("Arial", 26, true);
     textFont(f, 24);
+  
+    shield = loadImage("Shield.png");
   
     pop = new Popup();
 }
@@ -251,16 +253,16 @@ class GameScreen {
   
   /* ----------------- Power-Up Object ------------------*/
   class PowerUp extends GameObject {
-    color c = #ffffff;
+    String type;    
     
-    PowerUp(float x, float y, float r) {
-      super(x, y, r, r, "circle");
+    PowerUp(float x, float y, float r, String type) {
+      super(x, y, r, r, "rectangle");
+      this.type = type;
     }
     
     void display() {
       xpos -= hazardSpeed;
-      fill(c);
-      super.display();
+      image(shield, xpos, ypos, xradius, yradius);
     }
     
     
@@ -355,13 +357,9 @@ class GameScreen {
       super.display();
     }
     
-    void hazardMovement(float hazardSpeed) {
-       
-    }
-    
   }
   
-  /*-------------------------- Hazard Creation --------------------------------*/ 
+  /*-------------------------- Object Creation --------------------------------*/ 
  
  
   /*****************************************************************
@@ -374,6 +372,11 @@ class GameScreen {
   boolean distanceCheck() {
     distance += hazardSpeed;
     
+    if (distance - lastPowerUp > 2000) {
+      createPowerUp();
+      lastPowerUp = distance;
+    }
+    
     if (distance - lastHazardDistance > 500) {
       hazardSpeed += .1;
       createHazard();
@@ -383,12 +386,16 @@ class GameScreen {
     return false;
   }
   
+  void createPowerUp() {
+    powerUps.add(new PowerUp(1100.0, random(100, height - 150), 30.0, "shield")); 
+  }
+  
   void createHazard() {
     String shape = hazardShapes[(int)random(0,4)];
     
     switch (shape) {
      case "rectangle":
-       hazards.add(new Hazard(850.0, random(25, 775), 30.0, 30.0, 
+       hazards.add(new Hazard(850.0, random(25, 775), random(30, 60), random(30, 60), 
                     hazardTypes[(int)random(0,3)], shape));
        break;
      case "circle":
@@ -421,6 +428,7 @@ class GameScreen {
       distanceCheck();
 
       displayHazards();
+      displayPowerUps();
       p1.display();
     }
   }
@@ -441,6 +449,21 @@ class GameScreen {
         h.display(hazardSpeed);
         intersectCheck(p1, h);
         //print(h.shape + "\n");
+      }
+    }
+  }
+  
+  void displayPowerUps() {
+    PowerUp p;
+    for (int i = 0; i < powerUps.size(); i++) {
+      p = powerUps.get(i);
+      if ( p.xpos < 0 - p.xradius) {
+        powerUps.remove(i);
+      } else {
+        p.display();
+        if (twoRectangleCollision((GameObject)p1, (GameObject)p)) {
+          powerUps.remove(i); 
+        }
       }
     }
   }
