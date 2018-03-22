@@ -4,14 +4,12 @@ import de.bezier.data.sql.*;
 MySQL mysql;
 processing.core.PApplet p;
 
+boolean up = false, down = false, right = false, left = false, gameOver = false;
+
 GameScreen game;
 MenuScreen menu;
 Leaderboard lb;
 int switcher = 0;
-
-boolean up = false, down = false, right = false, left = false, gameOver = false;
-String[] hazardTypes = {"sine", "straight", "zigzag"};
-String[] hazardShapes = {"circle", "rectangle", "wall"};
 
 void setup() {
   game = new GameScreen();
@@ -99,10 +97,15 @@ void keyPressed() {
 class GameScreen {
   int score;
   int time;
+  float distance;
+  float lastHazardDistance;
+  float lastPowerUp;
   float hazardSpeed;
  
   Player p1;
   ArrayList<Hazard> hazards;
+  String[] hazardTypes = {"sine", "straight", "zigzag"};
+  String[] hazardShapes = {"circle", "rectangle", "wall", "spinner"};
  
   boolean paused;
  
@@ -153,10 +156,40 @@ class GameScreen {
           ellipse(xpos, ypos, xradius, xradius);
           break;
         case "wall":
-          rect(xpos, ypos, xradius, yradius);
+          rect(xpos, 0, 30, ypos);
+          rect(xpos, ypos + 250, 30, height - ypos - 250);
+          break;
+        case "spinner":
+          // xradius acts as radius
+          // yradius acts as angle
+          beginShape();
+            vertex(xpos + xradius * cos(yradius), ypos + xradius * sin(yradius));
+            vertex(xpos + xradius * cos(yradius + PI / 30), ypos + xradius * sin(yradius + PI / 30));
+            vertex(xpos + -(xradius * cos(yradius)), ypos - xradius * sin(yradius));
+            vertex(xpos - xradius * cos(yradius + PI / 30), ypos - xradius * sin(yradius + PI / 30));       
+          endShape();
+          yradius += PI / 30;
       }
     }
   }
+  
+  /* ----------------- Power-Up Object ------------------*/
+  class PowerUp extends GameObject {
+    color c = #ffffff;
+    
+    PowerUp(float x, float y, float r) {
+      super(x, y, r, r, "circle");
+    }
+    
+    void display() {
+      xpos -= hazardSpeed;
+      fill(c);
+      super.display();
+    }
+    
+    
+  }
+  
   
   /* ----------------- Player Object --------------------*/
   
@@ -166,7 +199,7 @@ class GameScreen {
     
     /*******************************************
     * Player Consctructor
-    * x-positiom y-position, radius, speed
+    * x-position y-position, radius, speed
     *******************************************/
     Player(float x, float y, float r, float s) {
       super(x, y, r, r, "rectangle");
@@ -174,18 +207,18 @@ class GameScreen {
     }
 
    /*******************************************
-   * Display Player
+   * Mover Player
    *******************************************/
     void move() {
       if (!gameOver) {
         if(up)
-          ypos = constrain(ypos - s, 0 + yradius, height - yradius);
+          ypos = constrain(ypos - s, 0, height - yradius);
         if(down)
-          ypos = constrain(ypos + s, 0 + yradius, height - yradius);
+          ypos = constrain(ypos + s, 0, height - yradius);
         if(right)
-          xpos = constrain(xpos + s, 0 + xradius, width - xradius);
+          xpos = constrain(xpos + s, 0, width - xradius);
         if(left)
-          xpos = constrain(xpos - s, 0 + xradius, width - xradius);
+          xpos = constrain(xpos - s, 0, width - xradius);
       }
     }
  
@@ -217,11 +250,9 @@ class GameScreen {
     }
     
     /*******************************************
-    * Displays Hazard
+    * Moves Hazard
     *******************************************/
-    void display(float hazardSpeed) {
-      fill(c);
-      
+    void moveHazard(float hazardSpeed) {
       switch (path) {
         case "sine":
           xpos -= hazardSpeed;
@@ -237,6 +268,14 @@ class GameScreen {
           else
             ypos -= 4;
       }
+    }
+      
+    /*******************************************
+    * Displays Hazard
+    *******************************************/
+    void display(float hazardSpeed) {
+      fill(c);
+      moveHazard(hazardSpeed);      
       super.display();
     }
     
@@ -256,19 +295,40 @@ class GameScreen {
   *
   * @returns true if new hazard is created
   ******************************************************************/
-  boolean timeCheck() {
-    int newTime = millis();
-  
-    if (newTime - time >= 500) {
+  boolean distanceCheck() {
+    distance += hazardSpeed;
+    
+    if (distance - lastHazardDistance > 500) {
       hazardSpeed += .1;
-     // hazards.add(new Hazard(850.0, random(25, 775), 30.0, 30.0, 
-      //              hazardTypes[(int)random(0,3)], hazardShapes[(int)random(0,3)]));
-      hazards.add(new Hazard(850.0, random(25, 775), 30.0, 30.0, 
-                    hazardTypes[(int)random(0,3)], hazardShapes[2]));
-      time = newTime;
+      createHazard();
+      lastHazardDistance = distance;
       return true;
     }
     return false;
+  }
+  
+  void createHazard() {
+    String shape = hazardShapes[(int)random(0,4)];
+    
+    switch (shape) {
+     case "rectangle":
+       hazards.add(new Hazard(850.0, random(25, 775), 30.0, 30.0, 
+                    hazardTypes[(int)random(0,3)], shape));
+       break;
+     case "circle":
+       hazards.add(new Hazard(850.0, random(25, 775), 30.0, 30.0, 
+                    hazardTypes[(int)random(0,3)], shape));
+       break;
+     case "wall":
+       hazards.add(new Hazard(850.0, random(0, height - 250), 30.0, 30.0, 
+                    "straight", shape));
+       break;
+     case "spinner":
+       hazards.add(new Hazard(850.0, random(25, 775), random(50, 100), 0, 
+                    "straight", shape));
+       break;
+     default:
+    }
   }
   
   /******************************************************
@@ -285,7 +345,7 @@ class GameScreen {
     
     text(score, 10, 25);
     
-    timeCheck();
+    distanceCheck();
 
     displayHazards();
     p1.display();
@@ -324,7 +384,11 @@ class GameScreen {
         intersect = rectCircCollision(p, h);     
         break;
       case "wall":
-        intersect = twoRectangleCollision(p, h);
+        intersect = wallCollision(p, h);
+        break;
+      case "spinner": 
+        intersect = spinnerCollision(p, h);
+        break;
       default:
         intersect = false;
     };
@@ -358,6 +422,62 @@ class GameScreen {
        return true;
     }
     else return false;
+  }
+
+  boolean spinnerCollision(GameObject player, GameObject hazard) {
+    float px1 = player.xpos; float py1 = player.ypos;
+    float px2 = player.xpos + player.xradius; float py2 = player.ypos;
+    float px3 = player.xpos; float py3 = player.ypos + player.yradius;
+    float px4 = player.xpos + player.xradius; float py4 = player.ypos + player.yradius;
+    
+    float hx1 = hazard.xpos + hazard.xradius * cos(hazard.yradius); float hy1 = hazard.ypos + hazard.xradius * sin(hazard.yradius);
+    float hx2 = hazard.xpos + hazard.xradius * cos(hazard.yradius + PI / 30); float hy2 = hazard.ypos + hazard.xradius * sin(hazard.yradius + PI / 30);
+    float hx3 = hazard.xpos + -(hazard.xradius * cos(hazard.yradius)); float hy3 = hazard.ypos - hazard.xradius * sin(hazard.yradius);
+    float hx4 = hazard.xpos - hazard.xradius * cos(hazard.yradius + PI / 30); float hy4 = hazard.ypos - hazard.xradius * sin(hazard.yradius + PI / 30);
+    
+    float xs[] = { px1, px2, px3, px4};
+    float ys[] = { py1, py2, py3, py4};
+    
+    for (int i = 0; i < 4; i++) {
+      float denominator = ((xs[(i + 1) % 3] - xs[i]) * (hy2 - hy1)) - ((ys[(i + 1) % 3] - ys[i]) * (hx2 - hx1));
+      float numerator1 = ((ys[(i + 1) % 3] - hy1) * (hx2 - hx1)) - ((xs[i] - hx1) * (hy2 - hy1));
+      float numerator2 = ((xs[i] - hy1) * (xs[(i + 1) % 3] - xs[i])) - ((xs[i] - hx1) * (ys[(i + 1) % 3] - ys[i]));
+      if (denominator != 0) { 
+        float r = numerator1 / denominator;
+        float s = numerator2 / denominator;
+        if (r >= 0 && r <= 1 && s >= 0 && s <= 1) {
+          return true; 
+        }
+      }
+    }
+    
+    for (int i = 0; i < 4; i++) {
+      float denominator = ((xs[(i + 1) % 3] - xs[i]) * (hy4 - hy3)) - ((ys[(i + 1) % 3] - ys[i]) * (hx4 - hx3));
+      float numerator1 = ((ys[(i + 1) % 3] - hy3) * (hx4 - hx3)) - ((xs[i] - hx1) * (hy4 - hy3));
+      float numerator2 = ((xs[i] - hy3) * (xs[(i + 1) % 3] - xs[i])) - ((xs[i] - hx3) * (ys[(i + 1) % 3] - ys[i]));
+      if (denominator != 0) { 
+        float r = numerator1 / denominator;
+        float s = numerator2 / denominator;
+        if (r >= 0 && r <= 1 && s >= 0 && s <= 1) {
+          return true; 
+        }
+      }
+    }
+    return false;
+  }
+  
+  /************************************************
+  * Checks if a wall hazard and the player are intersecting
+  *
+  * Returns true if they are and pauses the game
+  *************************************************/
+  boolean wallCollision(GameObject player, GameObject hazard) {
+    if (player.xpos + player.xradius > hazard.xpos && player.xpos < hazard.xpos + 30) {
+      if (player.ypos < hazard.ypos || player.ypos + player.yradius > hazard.ypos + 250) {
+        return true;
+      }
+    }
+    return false;
   }
   
   boolean twoRectangleCollision(GameObject player, GameObject hazard) {
