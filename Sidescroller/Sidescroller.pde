@@ -1,12 +1,18 @@
-// To Here
 import de.bezier.data.sql.*;
-  
+import processing.sound.*;
+
+SoundFile menumusic;      //Main Menu background music
+SoundFile bmusic;         // in-game bg music
+SoundFile boom;
+SoundFile mousehover;
+//SoundFile mouseclick;   // sound when mouse is clicked
+
+boolean pHovered;     // "Play" already hovered over
+boolean lHovered;     // "Leaderboards" already hovered over
+boolean oHovered;     // "Options" already hovered over (just in case)
+boolean qHovered;     // "Quit" already hovered over
 MySQL mysql;
 processing.core.PApplet p;
-
-boolean up = false, down = false, right = false, left = false, 
-  gameOver = false, lbConnection = false, highScore = false, initInput = false;
-String initials = "";
 
 GameScreen game;
 MenuScreen menu;
@@ -14,19 +20,47 @@ Popup pop;
 Leaderboard lb;
 int switcher = 0;
 
+boolean up = false, down = false, right = false, left = false, gameOver = false, lbConnection = false, highScore = false, initInput = false;
+String[] hazardTypes = {"sine", "straight", "zigzag"};
+String initials = "";
+
 void setup() {
   game = new GameScreen();
   lb = new Leaderboard();
   menu = new MenuScreen();
+  pop = new Popup();
   
   // Grabs this sketch id? for database connection. idk just works
   p = this;
+  lb.connect(p);
   
   ellipseMode(RADIUS);
   size(800,600);
   background(#0069b1);
  
-   
+    // Create strings with sound file names
+    String sMenuMusic = "MenuMusic.mp3";
+    String sIGMusic = "ingameMusic.mp3";
+    String sExplosion = "Explosion.mp3";
+    String sMouseover = "laser.aiff";
+
+    pHovered = false;
+    lHovered = false;
+    oHovered = false;
+    qHovered = false;
+    //Load a soundfile
+    menumusic = new SoundFile(this, sMenuMusic);
+    bmusic = new SoundFile(this, sIGMusic);
+    boom = new SoundFile(this, sExplosion);
+    mousehover = new SoundFile(this, sMouseover);
+    mousehover.set( 0.5, 0, 1, 0 );
+
+    menumusic.set(1,0,0.3,0);
+    bmusic.set(1,0,0.4,0);
+
+    // Play the file in a loop
+    menumusic.loop();
+
 }
 
 void draw() {
@@ -34,8 +68,8 @@ void draw() {
     // Display menu here
     case 0: menu.display(); break;
     
-    // While the game is happening, display game screen
-    case 1: if (true) game.display(); break;
+    // Display game screen
+    case 1: game.display(); break;
     
     // Display Leaderboards here
     case 2: lb.display(); break;
@@ -82,35 +116,33 @@ void mousePressed() {
 }
 
 void keyPressed() {
-  switch (key) {
-    case 'w':
-      up = true;
-      break;
-    case 's':
-      down = true;
-      break;
-    case 'a':
-      left = true;
-      break;
-    case 'd':
-     right = true;
+  if (!gameOver) {
+      switch (key) {
+        case 'w':
+          up = true; break;
+        case 's':
+          down = true; break;
+        case 'a':
+          left = true; break;
+        case 'd':
+          right = true; break;
+      }
   }
 }
 
 void keyReleased() {
-  switch (key) {
-    case 'w':
-      up = false;
-      break;
-    case 's':
-      down = false;
-      break;
-    case 'a':
-      left = false;
-      break;
-    case 'd':
-      right = false;
-  }  
+  if (!gameOver) {
+    switch (key) {
+      case 'w':
+        up = false; break;
+      case 's':
+        down = false; break;
+      case 'a':
+        left = false; break;
+      case 'd':
+        right = false;
+    }
+  }
 }
 
 void keyTyped() {
@@ -126,45 +158,12 @@ void keyTyped() {
   }
 }
 
-/*------------- Popup Class -----------------*/
-  class Popup {
-    Popup() {
-      
-    }
-    
-    void display() {
-      background(#0069b1);
-      if (lbConnection) {
-        if (lb.scoreCheck(game.score)) {
-          highScore = true;
-          textSize(32);
-          text("You Made The Leaderboards with " + game.score + " points!", 100, 50);
-          text("Click to enter initials", 100, 200);
-          text("Click to submit score", 450, 200);
-          text(initials, 400, 100);        
-          text("Play again", 100, 300);
-          text("Main menu", 100, 400);
-        }
-        else {
-          textSize(32);
-          text("Your scored " + game.score + " points!", 100, 50);
-          text("Play again", 100, 300);
-          text("Main menu", 100, 400);
-        }
-      }
-      else {
-        textSize(32);
-        text("Your scored " + game.score + " points!", 100, 50);
-        text("Play again", 100, 300);
-        text("Main menu", 100, 400);
-        textSize(20);
-        text("Leaderboards unavailable", 500, 50);
-      }
-    }
-  }
-
-/*------------------------------------------ Game Screen Class -----------------------------------------------*/
-
+/********************************************************
+* Class for the Game Screen
+*
+*
+*
+*********************************************************/
 class GameScreen {
   int score;
   int time;
@@ -174,14 +173,13 @@ class GameScreen {
   float hazardSpeed;
  
   Player p1;
-  ArrayList<Hazard> hazards; ArrayList<PowerUp> powerUps;
+  ArrayList<Hazard> hazards;
   String[] hazardTypes = {"sine", "straight", "zigzag"};
   String[] hazardShapes = {"circle", "rectangle", "wall", "spinner"};
  
-  boolean paused, shielded;
+  boolean paused;
  
   PFont f;
-  PImage shield, speed;
   
   GameScreen() {
     time = millis();
@@ -190,18 +188,12 @@ class GameScreen {
     
     p1 = new Player(50.0, 350.0, 20.0, 4);
     hazards = new ArrayList<Hazard>();
-    powerUps = new ArrayList<PowerUp>();
     
     paused = false;
     
     f = createFont("Arial", 26, true);
     textFont(f, 24);
-  
-    shield = loadImage("Shield.png");
-  
-    pop = new Popup();
-}
-  
+  }
  
   /*---------------------- Inner Classes For Game Screen ---------------------------*/  
   
@@ -253,16 +245,16 @@ class GameScreen {
   
   /* ----------------- Power-Up Object ------------------*/
   class PowerUp extends GameObject {
-    String type;    
+    color c = #ffffff;
     
-    PowerUp(float x, float y, float r, String type) {
-      super(x, y, r, r, "rectangle");
-      this.type = type;
+    PowerUp(float x, float y, float r) {
+      super(x, y, r, r, "circle");
     }
     
     void display() {
       xpos -= hazardSpeed;
-      image(shield, xpos, ypos, xradius, yradius);
+      fill(c);
+      super.display();
     }
     
     
@@ -285,7 +277,7 @@ class GameScreen {
     }
 
    /*******************************************
-   * Move Player
+   * Mover Player
    *******************************************/
     void move() {
       if (!gameOver) {
@@ -357,9 +349,13 @@ class GameScreen {
       super.display();
     }
     
+    void hazardMovement(float hazardSpeed) {
+       
+    }
+    
   }
   
-  /*-------------------------- Object Creation --------------------------------*/ 
+  /*-------------------------- Hazard Creation --------------------------------*/ 
  
  
   /*****************************************************************
@@ -372,11 +368,6 @@ class GameScreen {
   boolean distanceCheck() {
     distance += hazardSpeed;
     
-    if (distance - lastPowerUp > 2000) {
-      createPowerUp();
-      lastPowerUp = distance;
-    }
-    
     if (distance - lastHazardDistance > 500) {
       hazardSpeed += .1;
       createHazard();
@@ -386,16 +377,12 @@ class GameScreen {
     return false;
   }
   
-  void createPowerUp() {
-    powerUps.add(new PowerUp(1100.0, random(100, height - 150), 30.0, "shield")); 
-  }
-  
   void createHazard() {
     String shape = hazardShapes[(int)random(0,4)];
     
     switch (shape) {
      case "rectangle":
-       hazards.add(new Hazard(850.0, random(25, 775), random(30, 60), random(30, 60), 
+       hazards.add(new Hazard(850.0, random(25, 775), 30.0, 30.0, 
                     hazardTypes[(int)random(0,3)], shape));
        break;
      case "circle":
@@ -422,13 +409,15 @@ class GameScreen {
   void display() {
     if (!gameOver) {
       background(#a5a5a5);
-    
+      
+      //After "Play" is clicked
+      menumusic.stop();
+      bmusic.loop();    //background    
       text(score, 10, 25);
     
       distanceCheck();
 
       displayHazards();
-      displayPowerUps();
       p1.display();
     }
   }
@@ -449,21 +438,6 @@ class GameScreen {
         h.display(hazardSpeed);
         intersectCheck(p1, h);
         //print(h.shape + "\n");
-      }
-    }
-  }
-  
-  void displayPowerUps() {
-    PowerUp p;
-    for (int i = 0; i < powerUps.size(); i++) {
-      p = powerUps.get(i);
-      if ( p.xpos < 0 - p.xradius) {
-        powerUps.remove(i);
-      } else {
-        p.display();
-        if (twoRectangleCollision((GameObject)p1, (GameObject)p)) {
-          powerUps.remove(i); 
-        }
       }
     }
   }
@@ -493,6 +467,9 @@ class GameScreen {
    if (intersect) {
      gameOver = true;
      paused = true;
+     //After Collision
+      bmusic.stop();
+      boom.play();
      pop.display();
    }
     
@@ -516,6 +493,7 @@ class GameScreen {
        hazardSpeed = 0;
        paused = true;
        gameOver = true;
+       pop.display();
        return true;
     }
     else return false;
@@ -617,12 +595,56 @@ class GameScreen {
    else 
      return false;
   }
-  
 }
 
+/*******************************************
+* Popup Class
+* Holds all variables of the popup menu after game
+*******************************************/
+class Popup {
+  Popup() {
+    
+  }
   
-/*----------------------------------------- Menu Screen -------------------------------------------*/
+  void display() {
+    background(#0069b1);
+    if (lbConnection) {
+      if (lb.scoreCheck(game.score)) {
+        highScore = true;
+        textSize(32);
+        text("You Made The Leaderboards with " + game.score + " points!", 100, 50);
+        text("Click to enter initials", 100, 200);
+        text("Click to submit score", 450, 200);
+        text(initials, 400, 100);        
+        text("Play again", 100, 300);
+        text("Main menu", 100, 400);
+      }
+      else {
+        textSize(32);
+        text("Your scored " + game.score + " points!", 100, 50);
+        text("Play again", 100, 300);
+        text("Main menu", 100, 400);
+      }
+    }
+    else {
+      textSize(32);
+      text("Your scored " + game.score + " points!", 100, 50);
+      text("Play again", 100, 300);
+      text("Main menu", 100, 400);
+      textSize(20);
+      text("Leaderboards unavailable", 500, 50);
+    }
+    bmusic.stop();
+    menumusic.loop();
+  }
+}
 
+/********************************************************
+* Class for the Game's Menu Screen
+*
+*
+*
+*********************************************************/
 class MenuScreen {
   String play = "play";
   String lb = "leaderboards"; // Strings to be displayed in menu
@@ -631,6 +653,70 @@ class MenuScreen {
   
   void display() {
     background(#0069b1);
+    int xxx = 0;   //filler int to suppress errors, fill in with real vals
+    int yyy = 1;
+    
+    // Play
+    if( 100 < mouseX && mouseX < 165 )
+    {
+      if( 70 < mouseY && mouseY <= 110 )
+       {
+        if( pHovered == false )
+        {
+        pHovered = true;
+        lHovered = false;
+        oHovered = false;
+        qHovered = false;
+        mousehover.play();
+      }
+    }
+  }
+ // Leaderboard
+  if( 100 <= mouseX && mouseX <= 300 )
+  {
+    if( 175 <= mouseY && mouseY <= 200 )
+    {
+      if( lHovered == false )
+      {
+        pHovered = false;
+        lHovered = true;
+        oHovered = false;
+        qHovered = false;
+        mousehover.play();
+      }
+    }
+  }
+  // Options (not implemented)
+  //if( 5 <= mouseX && mouseX <= 100 )
+  //{
+  //  if( 5 <= mouseY && mouseY <= 500 )
+  //  {
+  //    if( oHovered == false )
+  //    {
+  //      pHovered = false;
+  //      lHovered = false;
+  //      oHovered = true;
+  //      qHovered = false;
+  //      mousehover.play();
+  //    }
+  //  }
+  //}
+  // Quit
+  if( 100 <= mouseX && mouseX <= 160 )
+  {
+    if( 270 <= mouseY && mouseY <= 310 )
+    {
+      if( qHovered == false )
+      {
+        pHovered = false;
+        lHovered = false;
+        oHovered = false;
+        qHovered = true;
+        mousehover.play();
+      }
+    }
+  }
+
     textSize(32);
     text(play, 100, 100);
     text(lb, 100, 200);
@@ -638,8 +724,12 @@ class MenuScreen {
   }
 }
 
-/*------------------------------------- Leaderboards Screen ---------------------------------------*/
-
+/********************************************************
+* Class for the Leaderboard Screen
+*
+*
+*
+*********************************************************/
 class Leaderboard {
   String inits;
   int pts;
@@ -740,3 +830,5 @@ class Leaderboard {
     }
   }
 }
+
+// -------------------------- Player Movement -----------------------------------
