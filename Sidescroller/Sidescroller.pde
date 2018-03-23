@@ -158,12 +158,8 @@ void keyTyped() {
   }
 }
 
-/********************************************************
-* Class for the Game Screen
-*
-*
-*
-*********************************************************/
+/*------------------------------------------ Game Screen Class -----------------------------------------------*/
+
 class GameScreen {
   int score;
   int time;
@@ -173,13 +169,14 @@ class GameScreen {
   float hazardSpeed;
  
   Player p1;
-  ArrayList<Hazard> hazards;
+  ArrayList<Hazard> hazards; ArrayList<PowerUp> powerUps;
   String[] hazardTypes = {"sine", "straight", "zigzag"};
   String[] hazardShapes = {"circle", "rectangle", "wall", "spinner"};
  
-  boolean paused;
+  boolean paused, shielded;
  
   PFont f;
+  PImage shield, speed;
   
   GameScreen() {
     time = millis();
@@ -188,12 +185,18 @@ class GameScreen {
     
     p1 = new Player(50.0, 350.0, 20.0, 4);
     hazards = new ArrayList<Hazard>();
+    powerUps = new ArrayList<PowerUp>();
     
-    paused = false;
+    paused = false; up = false; left = false; down = false; right = false;
     
     f = createFont("Arial", 26, true);
     textFont(f, 24);
-  }
+  
+    shield = loadImage("Shield.png");
+  
+    pop = new Popup();
+}
+  
  
   /*---------------------- Inner Classes For Game Screen ---------------------------*/  
   
@@ -245,16 +248,16 @@ class GameScreen {
   
   /* ----------------- Power-Up Object ------------------*/
   class PowerUp extends GameObject {
-    color c = #ffffff;
+    String type;    
     
-    PowerUp(float x, float y, float r) {
-      super(x, y, r, r, "circle");
+    PowerUp(float x, float y, float r, String type) {
+      super(x, y, r, r, "rectangle");
+      this.type = type;
     }
     
     void display() {
       xpos -= hazardSpeed;
-      fill(c);
-      super.display();
+      image(shield, xpos, ypos, xradius, yradius);
     }
     
     
@@ -264,6 +267,7 @@ class GameScreen {
   /* ----------------- Player Object --------------------*/
   
   class Player extends GameObject {
+    boolean shielded;
     float s;
     color c = #cccccc;
     
@@ -277,7 +281,7 @@ class GameScreen {
     }
 
    /*******************************************
-   * Mover Player
+   * Move Player
    *******************************************/
     void move() {
       if (!gameOver) {
@@ -349,13 +353,9 @@ class GameScreen {
       super.display();
     }
     
-    void hazardMovement(float hazardSpeed) {
-       
-    }
-    
   }
   
-  /*-------------------------- Hazard Creation --------------------------------*/ 
+  /*-------------------------- Object Creation --------------------------------*/ 
  
  
   /*****************************************************************
@@ -368,6 +368,11 @@ class GameScreen {
   boolean distanceCheck() {
     distance += hazardSpeed;
     
+    if (distance - lastPowerUp > 2000) {
+      createPowerUp();
+      lastPowerUp = distance;
+    }
+    
     if (distance - lastHazardDistance > 500) {
       hazardSpeed += .1;
       createHazard();
@@ -377,12 +382,16 @@ class GameScreen {
     return false;
   }
   
+  void createPowerUp() {
+    powerUps.add(new PowerUp(1100.0, random(100, height - 150), 30.0, "shield")); 
+  }
+  
   void createHazard() {
     String shape = hazardShapes[(int)random(0,4)];
     
     switch (shape) {
      case "rectangle":
-       hazards.add(new Hazard(850.0, random(25, 775), 30.0, 30.0, 
+       hazards.add(new Hazard(850.0, random(25, 775), random(30, 60), random(30, 60), 
                     hazardTypes[(int)random(0,3)], shape));
        break;
      case "circle":
@@ -409,16 +418,18 @@ class GameScreen {
   void display() {
     if (!gameOver) {
       background(#a5a5a5);
-      
+    
+      text(score, 10, 25);
+    
       //After "Play" is clicked
       menumusic.stop();
-      bmusic.loop();    //background    
-      text(score, 10, 25);
+      bmusic.loop();    //background   
     
       distanceCheck();
 
-      displayHazards();
+      displayPowerUps();
       p1.display();
+      displayHazards();
     }
   }
   
@@ -436,8 +447,26 @@ class GameScreen {
         score += 100 * (int)hazardSpeed / 4;
       } else {
         h.display(hazardSpeed);
-        intersectCheck(p1, h);
+        if  (intersectCheck(p1, h))
+          hazards.remove(i);
         //print(h.shape + "\n");
+      }
+    }
+  }
+  
+  void displayPowerUps() {
+    PowerUp p;
+    for (int i = 0; i < powerUps.size(); i++) {
+      p = powerUps.get(i);
+      if ( p.xpos < 0 - p.xradius) {
+        powerUps.remove(i);
+      } else {
+        p.display();
+        if (twoRectangleCollision((GameObject)p1, (GameObject)p)) {
+          powerUps.remove(i); 
+          shielded = true;
+          stroke(#ffffff);
+        }
       }
     }
   }
@@ -465,15 +494,20 @@ class GameScreen {
     };
     
    if (intersect) {
+     if (shielded) {
+       shielded = false;
+       stroke(#000000);
+       return true;
+     }
      gameOver = true;
      paused = true;
      //After Collision
-      bmusic.stop();
-      boom.play();
+     bmusic.stop();
+     boom.play();
      pop.display();
    }
     
-   return intersect; 
+   return false; 
   }
   
   /************************************************
@@ -493,7 +527,6 @@ class GameScreen {
        hazardSpeed = 0;
        paused = true;
        gameOver = true;
-       pop.display();
        return true;
     }
     else return false;
@@ -595,6 +628,7 @@ class GameScreen {
    else 
      return false;
   }
+  
 }
 
 /*******************************************
@@ -607,7 +641,7 @@ class Popup {
   }
   
   void display() {
-    background(#0069b1);
+    background(#a5a5a5);
     if (lbConnection) {
       if (lb.scoreCheck(game.score)) {
         highScore = true;
@@ -652,7 +686,7 @@ class MenuScreen {
 
   
   void display() {
-    background(#0069b1);
+    background(#a5a5a5);
     int xxx = 0;   //filler int to suppress errors, fill in with real vals
     int yyy = 1;
     
@@ -764,7 +798,7 @@ class Leaderboard {
     int xOffset = 0;
     
     // Initialize screen and display text
-    background(#0069b1);
+    background(#a5a5a5);
     textSize(30);
     text("HIGH SCORES", 300, 30);
     text("Back to main menu", 300, 570);
