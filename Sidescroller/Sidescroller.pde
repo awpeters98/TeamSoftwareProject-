@@ -59,7 +59,7 @@ void setup() {
     bmusic.set(1,0,0.4,0);
 
     // Play the file in a loop
-    menumusic.loop();
+    //menumusic.loop();
 
 }
 
@@ -183,7 +183,7 @@ class GameScreen {
     score = 0;
     hazardSpeed = 4.0;
     
-    p1 = new Player(50.0, 350.0, 20.0, 4);
+    p1 = new Player(50.0, 350.0, 20.0, 2);
     hazards = new ArrayList<Hazard>();
     powerUps = new ArrayList<PowerUp>();
     
@@ -268,7 +268,7 @@ class GameScreen {
   
   class Player extends GameObject {
     boolean shielded;
-    float s;
+    float speedMult, vSpeed, hSpeed;
     color c = #cccccc;
     
     /*******************************************
@@ -277,7 +277,8 @@ class GameScreen {
     *******************************************/
     Player(float x, float y, float r, float s) {
       super(x, y, r, r, "rectangle");
-      this.s = s;
+      speedMult = s;
+      vSpeed = 0; hSpeed = 0;
     }
 
    /*******************************************
@@ -286,13 +287,26 @@ class GameScreen {
     void move() {
       if (!gameOver) {
         if(up)
-          ypos = constrain(ypos - s, 0, height - yradius);
+          vSpeed = constrain(vSpeed + .1 * speedMult, -1, 1);
         if(down)
-          ypos = constrain(ypos + s, 0, height - yradius);
+          vSpeed = constrain(vSpeed - .1 * speedMult, -1, 1);
         if(right)
-          xpos = constrain(xpos + s, 0, width - xradius);
+          hSpeed = constrain(hSpeed + .1 * speedMult, -1, 1);
         if(left)
-          xpos = constrain(xpos - s, 0, width - xradius);
+          hSpeed = constrain(hSpeed - .1 * speedMult, -1, 1);
+          
+        if (vSpeed < 0)
+          vSpeed += .05;
+        else
+          vSpeed -= .05;
+          
+        if (hSpeed < 0)
+          hSpeed += .05;
+        else
+          hSpeed -= .05;
+          
+        ypos = constrain(ypos - vSpeed * 4, 0, height - yradius);
+        xpos = constrain(xpos + hSpeed * 4, 0, width - xradius);
       }
     }
  
@@ -423,7 +437,7 @@ class GameScreen {
     
       //After "Play" is clicked
       menumusic.stop();
-      bmusic.loop();    //background   
+      //bmusic.loop();    //background   
     
       distanceCheck();
 
@@ -669,7 +683,7 @@ class Popup {
       text("Leaderboards unavailable", 500, 50);
     }
     bmusic.stop();
-    menumusic.loop();
+    //menumusic.loop();
   }
 }
 
