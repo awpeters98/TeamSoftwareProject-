@@ -169,7 +169,7 @@ class GameScreen {
   float hazardSpeed;
  
   Player p1;
-  ArrayList<Hazard> hazards; ArrayList<PowerUp> powerUps;
+  ArrayList<Hazard> hazards; ArrayList<PowerUp> powerUps; ArrayList<ParticleSystem> explosions;
   String[] hazardTypes = {"sine", "straight", "zigzag"};
   String[] hazardShapes = {"circle", "rectangle", "wall", "spinner"};
  
@@ -186,6 +186,7 @@ class GameScreen {
     p1 = new Player(50.0, 350.0, 20.0, 2);
     hazards = new ArrayList<Hazard>();
     powerUps = new ArrayList<PowerUp>();
+    explosions = new ArrayList<ParticleSystem>();
     
     paused = false; up = false; left = false; down = false; right = false;
     
@@ -199,6 +200,70 @@ class GameScreen {
   
  
   /*---------------------- Inner Classes For Game Screen ---------------------------*/  
+  
+  
+  /*---------------------------- Particles ----------------------------------------*/
+
+// A class to describe a group of Particles
+// An ArrayList is used to manage the list of Particles 
+
+  class ParticleSystem {
+    ArrayList<Particle> particles;
+    PVector origin;
+    float lifespan;
+    
+    class Particle {
+      PVector position;
+      PVector velocity;
+
+      Particle(PVector l) {
+        velocity = new PVector(random(-1, 1), random(-2, 0));
+        position = l.copy();
+      }
+
+      void run() {
+        update();
+        display();
+      }
+
+      // Method to update position
+      void update() {
+        position.add(velocity);
+      }
+
+      // Method to display
+      void display() {
+        stroke(0, lifespan);
+        fill(0, lifespan);
+        ellipse(position.x, position.y, 8, 8);
+      }
+    }
+    
+    ParticleSystem(PVector position) {
+      lifespan = 255.0;
+      origin = position.copy();
+      particles = new ArrayList<Particle>();
+      for (int i = 0; i < 50; i ++)
+        particles.add(new Particle(origin));
+    }
+
+    void run() {
+      for (int i = particles.size()-1; i >= 0; i--) {
+        Particle p = particles.get(i);
+        p.run();
+      }
+      lifespan -= 4.0;
+    }
+    
+    // Is the particle still useful?
+    boolean isDead() {
+      if (lifespan < 0.0) {
+        return true;
+      } else {
+        return false;
+      }
+    }  
+  }
   
   /* ----------------- Game Objects --------------------*/
   
@@ -444,6 +509,7 @@ class GameScreen {
       displayPowerUps();
       p1.display();
       displayHazards();
+      displayParticles();
     }
   }
   
@@ -485,6 +551,17 @@ class GameScreen {
     }
   }
   
+  void displayParticles() {
+    ParticleSystem ps; 
+    for (int i = 0; i < explosions.size(); i ++) {
+      ps = explosions.get(i);
+      if (ps.isDead())
+        explosions.remove(i);
+      else
+        ps.run();
+    }
+  }
+  
   /* ------------------------- Collision Detection ----------------------- */
   
   boolean intersectCheck(Player p, Hazard h) {
@@ -510,6 +587,7 @@ class GameScreen {
    if (intersect) {
      if (shielded) {
        shielded = false;
+       explosions.add(new ParticleSystem(new PVector(p1.xpos, p1.ypos)));
        stroke(#000000);
        return true;
      }
