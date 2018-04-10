@@ -243,7 +243,7 @@ class GameScreen {
       lifespan = 255.0;
       origin = position.copy();
       particles = new ArrayList<Particle>();
-      for (int i = 0; i < 50; i ++)
+      for (int i = 0; i < 40; i ++)
         particles.add(new Particle(origin));
     }
 
@@ -255,7 +255,7 @@ class GameScreen {
       lifespan -= 4.0;
     }
     
-    // Is the particle still useful?
+    // Is the particle system still useful?
     boolean isDead() {
       if (lifespan < 0.0) {
         return true;
@@ -306,7 +306,10 @@ class GameScreen {
             vertex(xpos + -(xradius * cos(yradius)), ypos - xradius * sin(yradius));
             vertex(xpos - xradius * cos(yradius + PI / 30), ypos - xradius * sin(yradius + PI / 30));       
           endShape();
-          yradius += PI / 30;
+          if (xradius % 2 == 1)
+            yradius += PI / 30;
+          else
+            yradius -= PI / 30;
       }
     }
   }
@@ -625,42 +628,35 @@ class GameScreen {
   }
 
   boolean spinnerCollision(GameObject player, GameObject hazard) {
-    float px1 = player.xpos; float py1 = player.ypos;
-    float px2 = player.xpos + player.xradius; float py2 = player.ypos;
-    float px3 = player.xpos; float py3 = player.ypos + player.yradius;
-    float px4 = player.xpos + player.xradius; float py4 = player.ypos + player.yradius;
+    PVector points[]= new PVector[7];
     
-    float hx1 = hazard.xpos + hazard.xradius * cos(hazard.yradius); float hy1 = hazard.ypos + hazard.xradius * sin(hazard.yradius);
-    float hx2 = hazard.xpos + hazard.xradius * cos(hazard.yradius + PI / 30); float hy2 = hazard.ypos + hazard.xradius * sin(hazard.yradius + PI / 30);
-    float hx3 = hazard.xpos + -(hazard.xradius * cos(hazard.yradius)); float hy3 = hazard.ypos - hazard.xradius * sin(hazard.yradius);
-    float hx4 = hazard.xpos - hazard.xradius * cos(hazard.yradius + PI / 30); float hy4 = hazard.ypos - hazard.xradius * sin(hazard.yradius + PI / 30);
+    float theta = hazard.yradius + PI / 60;
+    float endx1 = hazard.xpos + hazard.xradius * cos(theta);
+    float endy1 = hazard.ypos + hazard.xradius * sin(theta);
+    float endx2 = hazard.xpos - hazard.xradius * cos(theta);
+    float endy2 = hazard.ypos - hazard.xradius * sin(theta);
     
-    float xs[] = { px1, px2, px3, px4};
-    float ys[] = { py1, py2, py3, py4};
+    points[0] = new PVector(endx1, endy1);
+    points[1] = new PVector(endx1 * 0.33, endy1 * 0.33);
+    points[2] = new PVector(endx1 * 0.67, endy1 * 0.67);
+    points[3] = new PVector((endx1 + endx2) * 0.5, (endy1 - endy2) * 0.5);
+    points[4] = new PVector(endx2 * 0.33, endy2 * 0.33);
+    points[5] = new PVector(endx2 * 0.67, endy2 * 0.67);
+    points[6] = new PVector(endx2, endy2);
     
-    for (int i = 0; i < 4; i++) {
-      float denominator = ((xs[(i + 1) % 3] - xs[i]) * (hy2 - hy1)) - ((ys[(i + 1) % 3] - ys[i]) * (hx2 - hx1));
-      float numerator1 = ((ys[(i + 1) % 3] - hy1) * (hx2 - hx1)) - ((xs[i] - hx1) * (hy2 - hy1));
-      float numerator2 = ((xs[i] - hy1) * (xs[(i + 1) % 3] - xs[i])) - ((xs[i] - hx1) * (ys[(i + 1) % 3] - ys[i]));
-      if (denominator != 0) { 
-        float r = numerator1 / denominator;
-        float s = numerator2 / denominator;
-        if (r >= 0 && r <= 1 && s >= 0 && s <= 1) {
-          return true; 
-        }
-      }
+    for (int i = 0; i < points.length; i ++) {
+      PVector point = points[i];
+      if (pointInRect(point, player))
+        return true;
     }
     
-    for (int i = 0; i < 4; i++) {
-      float denominator = ((xs[(i + 1) % 3] - xs[i]) * (hy4 - hy3)) - ((ys[(i + 1) % 3] - ys[i]) * (hx4 - hx3));
-      float numerator1 = ((ys[(i + 1) % 3] - hy3) * (hx4 - hx3)) - ((xs[i] - hx1) * (hy4 - hy3));
-      float numerator2 = ((xs[i] - hy3) * (xs[(i + 1) % 3] - xs[i])) - ((xs[i] - hx3) * (ys[(i + 1) % 3] - ys[i]));
-      if (denominator != 0) { 
-        float r = numerator1 / denominator;
-        float s = numerator2 / denominator;
-        if (r >= 0 && r <= 1 && s >= 0 && s <= 1) {
-          return true; 
-        }
+    return false;
+  }
+  
+  boolean pointInRect(PVector point, GameObject rectangle) {
+    if (point.x >= rectangle.xpos && point.x <= rectangle.xpos + rectangle.xradius) {
+      if (point.y >= rectangle.ypos && point.y <= rectangle.ypos + rectangle.yradius) {
+        return true;
       }
     }
     return false;
