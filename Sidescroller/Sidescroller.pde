@@ -183,7 +183,7 @@ class GameScreen {
     score = 0;
     hazardSpeed = 4.0;
     
-    p1 = new Player(50.0, 350.0, 20.0, 2);
+    p1 = new Player(width / 40, (height / 2) - 25, width / 40, width / 400);
     hazards = new ArrayList<Hazard>();
     powerUps = new ArrayList<PowerUp>();
     explosions = new ArrayList<ParticleSystem>();
