@@ -1,66 +1,106 @@
 import de.bezier.data.sql.*;
 import processing.sound.*;
+import controlP5.*;
+
+
+boolean bplaying, fullsc, sound;   // bg music playing, fullscreen mode
+
+float gameHeight, gameWidth;
 
 SoundFile menumusic;      //Main Menu background music
 SoundFile bmusic;         // in-game bg music
 SoundFile boom;
-SoundFile mousehover;
-//SoundFile mouseclick;   // sound when mouse is clicked
+SoundFile mousehover, mouseclick, ee, sss;
 
-boolean pHovered;     // "Play" already hovered over
-boolean lHovered;     // "Leaderboards" already hovered over
-boolean oHovered;     // "Options" already hovered over (just in case)
-boolean qHovered;     // "Quit" already hovered over
+boolean isHovered, gMode;
 MySQL mysql;
-processing.core.PApplet p;
-
+ControlP5 cp5;
 GameScreen game;
 MenuScreen menu;
 Popup pop;
 Leaderboard lb;
+Options op;
 int switcher = 0;
+int konState = 0, gBreak = 0;
+processing.core.PApplet p;
+
 
 boolean up = false, down = false, right = false, left = false, gameOver = false, lbConnection = false, highScore = false, initInput = false;
 String[] hazardTypes = {"sine", "straight", "zigzag"};
 String initials = "";
 
+controlP5.Button MainMenu, Play, Leaderboards, Quit, PlayAgain, Main_Menu, Options, SoundOn, SoundOff;
+controlP5.Textfield Initials;
+controlP5.Bang Submit;
+controlP5.Slider Volume;
+//controlP5.CheckBox Sound;
+
 void setup() {
+    // Variable Initialization
   game = new GameScreen();
   lb = new Leaderboard();
   menu = new MenuScreen();
   pop = new Popup();
-  
+  cp5 = new ControlP5(this);
+  op = new Options();
+  surface.setResizable(true);
+  fullsc = false;
   // Grabs this sketch id? for database connection. idk just works
   p = this;
-  lb.connect(p);
+  sound = true;
+
   
   ellipseMode(RADIUS);
   size(800,600);
+  gameHeight = 600;
+  gameWidth = 800;
   background(#0069b1);
  
+ //buttons
+  MainMenu = cp5.addButton("MainMenu").hide();
+  Play = cp5.addButton("Play").hide();
+  Leaderboards = cp5.addButton("Leaderboards").hide();
+  Quit = cp5.addButton("Quit").hide();
+  PlayAgain = cp5.addButton("PlayAgain").hide();
+  Main_Menu = cp5.addButton("Main_Menu").hide();
+  Initials = cp5.addTextfield("Initials").hide();
+  Submit = cp5.addBang("Submit").hide();
+  Options = cp5.addButton("Options").hide();
+  Volume = cp5.addSlider("Volume").hide();
+  SoundOn = cp5.addButton("Sound: On").hide();
+  SoundOff = cp5.addButton("Sound: Off").hide();
+  
+  gMode = false;
+    
+    // Housekeeping
+  lb.connect(this);  // Connects to this sketch id?
+  ellipseMode(RADIUS);
+  size(800,600);
+  background(#0069b1);
+    
+  
     // Create strings with sound file names
     String sMenuMusic = "MenuMusic.mp3";
     String sIGMusic = "ingameMusic.mp3";
     String sExplosion = "Explosion.mp3";
-    String sMouseover = "laser.aiff";
-
-    pHovered = false;
-    lHovered = false;
-    oHovered = false;
-    qHovered = false;
+    String sMouseover = "laser.aiff", sEE = "EEggSFX.wav";
+    String sMouseclick = "space_laser_shot.mp3";
+    String s666 = "666REV.mp3";
     //Load a soundfile
     menumusic = new SoundFile(this, sMenuMusic);
     bmusic = new SoundFile(this, sIGMusic);
     boom = new SoundFile(this, sExplosion);
     mousehover = new SoundFile(this, sMouseover);
+    mouseclick = new SoundFile(this, sMouseclick);
+    ee = new SoundFile(this, sEE);
+    sss = new SoundFile(this, s666);
+    mouseclick.set(1,0,1,0);
     mousehover.set( 0.5, 0, 1, 0 );
-
     menumusic.set(1,0,0.3,0);
     bmusic.set(1,0,0.4,0);
-
-    // Play the file in a loop
-    //menumusic.loop();
-
+    sss.set(1.3,0,1,0);
+    ee.set(1,0,1,0);
+    menumusic.loop();
 }
 
 void draw() {
@@ -69,53 +109,69 @@ void draw() {
     case 0: menu.display(); break;
     
     // Display game screen
-    case 1: game.display(); break;
+    case 1: game.display();  break; 
     
     // Display Leaderboards here
-    case 2: lb.display(); break;
-  }
-}
-
-void mousePressed() {
-  if (switcher == 0 && mouseX > 100 && mouseX < 165 && mouseY > 70 && mouseY < 110) {
-    switcher = 1;  // Play button from Main Menu
-  }
-  if (switcher == 0 && mouseX > 100 && mouseX < 300 && mouseY > 175 && mouseY < 200) {
-    switcher = 2;  // Leaderboards button from Main Menu
+    case 2: lb.display();  break;
     
+     // Display Options here
+    case 3: op.display();
   }
-  if (switcher == 0 && mouseX > 100 && mouseX < 160 && mouseY > 270 && mouseY < 310) {
-    exit();  // Quit button from Main Menu
-    lb.disconnect();
-  }
-  if (switcher == 2 && mouseX > 300 && mouseX < 555 && mouseY > 545 && mouseY < 570) {
-    switcher = 0;  // Main Menu button from Leaderboards
-  }
-  if (switcher == 1 && gameOver && mouseX > 100 && mouseX < 250 && mouseY > 275 && mouseY < 300) {
-    game = new GameScreen();  // Play again button from Popup
-    gameOver = false;
-    highScore = false;
-    switcher = 1;
-    initials = "";
-  }
-  if (switcher == 1 && gameOver && mouseX > 100 && mouseX < 260 && mouseY > 375 && mouseY < 400) {
-    switcher = 0;  // Main Menu button from Popup
-    gameOver = false;
-    highScore = false;
-    game = new GameScreen();
-    initials = "";
-  }
-  if (switcher == 1 && gameOver && highScore && mouseX > 100 && mouseX < 380 && mouseY > 175 && mouseY < 200) {
-    initials = "";  // Click to enter initials if you got a high score
-    initInput = true;
-  }
-  if (switcher == 1 && gameOver && highScore && mouseX > 450 && mouseX < 745 && mouseY > 175 && mouseY < 200) {
-    lb.updateScore(game.score, initials);
-  }
-  println(mouseX, mouseY);
 }
 
 void keyPressed() {
+
+  if(key == CODED)
+  {
+    if(keyCode == UP){
+      if(konState == 0){ konState = 1; }
+      else if(konState == 1){ konState = 2; }
+      else if(konState == 2){ konState = 2; }
+      else { konState = 1; }
+    }
+     if(keyCode == DOWN){
+      if(konState == 2){ konState = 3; }
+      else if(konState == 3){ konState = 4; }
+      else { konState = 0; }
+    }
+    if(keyCode == LEFT){
+      if(konState == 4){ konState = 5; }
+      else if(konState == 6){ konState = 7; }
+      else { konState = 0; }
+    }
+    if(keyCode == RIGHT){
+      if(konState == 5){ konState = 6; }
+      else if(konState == 7){ konState = 8; }
+      else { konState = 0; }
+    }
+  }
+  if(konState >= 8){
+    switch(key) {
+      case 'b':
+        konState = (konState == 8) ? 9 : 0; break;
+      case 'a':
+        konState = (konState == 9) ? 10 : 0; break;
+      case ' ':
+        konState = (konState == 10) ? 11 : 0; break;
+      case ENTER:
+        konState = (konState == 11) ? 12 : 0; break;
+    }
+
+  }
+  if(konState == 12) { ee.play(); gMode = true; konState = -1; }
+
+  if(gMode) {
+        if( key == '6' ) {
+          switch(gBreak) {
+           case 0: gBreak = 1; break;
+           case 1: gBreak = 2; break;
+           case 2: sss.play(); gMode = false; konState = 0; gBreak = 0; break;
+          }
+        } else {
+          gBreak = 0;
+        }
+  }
+
   if (!gameOver) {
       switch (key) {
         case 'w':
@@ -129,6 +185,7 @@ void keyPressed() {
       }
   }
 }
+
 
 void keyReleased() {
   if (!gameOver) {
@@ -145,17 +202,118 @@ void keyReleased() {
   }
 }
 
-void keyTyped() {
-  if (initInput) {
-    if (initials.length() < 3) {
-      if ((key >= 'A' && key <= 'Z') || (key >= 'a' && key <= 'z')) {
-        initials += key;
-      }
-    }
-    else {
-      lb.updateScore(game.score, initials);
-    }
+
+// Controls events when button/bang is clicked
+void controlEvent(ControlEvent theEvent) {
+  // Main Menu button from Leaderboards screen
+  if (theEvent.getController().getName().equals("MainMenu")) {
+    switcher = 0;
+    MainMenu.hide();
+    Volume.hide();
+    SoundOn.hide();
+    SoundOff.hide();
+    bmusic.stop();
+    mouseclick.play();
+    menumusic.loop();
   }
+  // Play button from Main Menu screen
+  if (theEvent.getController().getName().equals("Play")) {
+    game = new GameScreen();
+    switcher = 1;
+    Play.hide();
+    Leaderboards.hide();
+    Options.hide();
+    Quit.hide();
+    menumusic.stop();
+    mouseclick.play();
+    bmusic.loop();
+  }
+  // Leaderboards button from Main Menu screen
+  if (theEvent.getController().getName().equals("Leaderboards")) {
+    switcher = 2;
+    Leaderboards.hide();
+    Play.hide();
+    Options.hide();
+    Quit.hide();
+    mouseclick.play();
+  }
+  // Quit button from Main Menu screen
+  if (theEvent.getController().getName().equals("Quit")) {
+    lb.disconnect();
+    mouseclick.play();
+    exit();
+  }
+  // Play Again button from Popup screen
+  if (theEvent.getController().getName().equals("PlayAgain")) {
+    PlayAgain.hide();
+    Main_Menu.hide();
+    Initials.hide();
+    Submit.hide();
+    gameOver = false;
+    highScore = false;
+    initials = "";
+    game = new GameScreen();
+    switcher = 1;
+    mouseclick.play();
+    bmusic.stop();
+    bmusic.play();
+  }
+  // Main Menu button from Popup screen
+  if (theEvent.getController().getName().equals("Main_Menu")) {
+    PlayAgain.hide();
+    Main_Menu.hide();
+    Initials.hide();
+    Submit.hide();
+    gameOver = false;
+    highScore = false;
+    initials = "";
+    game = new GameScreen();
+    switcher = 0;
+    mouseclick.play();
+    menumusic.stop();
+    menumusic.play();
+  }
+  // Submit bang from Popup screen
+  if (theEvent.getController().getName().equals("Submit")) {
+    initials = Initials.getText();
+    Initials.clear();
+    lb.updateScore(game.score, initials);
+    mouseclick.play();
+  }
+  if (theEvent.getController().getName().equals("Options")) {
+    Play.hide();
+    Leaderboards.hide();
+    Options.hide();
+    Quit.hide();
+    switcher = 3;
+    mouseclick.play();
+  }
+  if (theEvent.getController().getName().equals("Sound: On")) {
+      sound = true;
+      mousehover.amp(1);
+      bmusic.amp(.4);
+      menumusic.amp(0.3);
+      boom.amp(1);
+      mouseclick.amp(1);
+      sss.amp(1);
+      mouseclick.play();
+  }
+  if (theEvent.getController().getName().equals("Sound: Off")) {
+    sound = false;
+    mousehover.amp(0);
+    bmusic.amp(0);
+    menumusic.amp(0);
+    boom.amp(0);
+    mouseclick.amp(0);
+    sss.amp(0);
+    mouseclick.play();
+  }
+}
+
+/* ----------------------------------------- Last Game Data ------------------------------------------------- */
+class LastGame {
+  String[] inputs;
+  
 }
 
 /*------------------------------------------ Game Screen Class -----------------------------------------------*/
@@ -167,7 +325,6 @@ class GameScreen {
   float lastHazardDistance;
   float lastPowerUp;
   float hazardSpeed;
- 
   Player p1;
   ArrayList<Hazard> hazards; ArrayList<PowerUp> powerUps; ArrayList<ParticleSystem> explosions;
   String[] hazardTypes = {"sine", "straight", "zigzag"};
@@ -175,25 +332,45 @@ class GameScreen {
  
   boolean paused, shielded;
  
+  // Images of powerups and players
   PFont f;
   PImage shield, speed;
+  PImage forwardShip, upShip, downShip, ship;
+  float forwardLength, forwardHeight, diagonalLength;
   
   GameScreen() {
     time = millis();
     score = 0;
     hazardSpeed = 4.0;
     
-    p1 = new Player(width / 40, (height / 2) - 25, width / 40, width / 400);
+    gameHeight = height;
+    gameWidth = width;
+    
+    if (fullsc) {
+      gameHeight = displayHeight;
+      gameWidth = displayWidth;
+    }
+    
+    // Size of player object based on orientation
+    forwardLength = gameHeight * 1.25 / 16.0;
+    forwardHeight = gameHeight / 16.0;
+    diagonalLength = gameHeight * 1.132 / 16.0;
+    
+    p1 = new Player(50.0, (gameHeight / 2) - 25, forwardLength, forwardHeight, 2);
     hazards = new ArrayList<Hazard>();
     powerUps = new ArrayList<PowerUp>();
     explosions = new ArrayList<ParticleSystem>();
     
-    paused = false; up = false; left = false; down = false; right = false;
+    paused = false; gameOver = false; up = false; left = false; down = false; right = false;
     
     f = createFont("Arial", 26, true);
     textFont(f, 24);
   
     shield = loadImage("Shield.png");
+    forwardShip = loadImage("spaceship1.png");
+    downShip = loadImage("spaceship2.png");
+    upShip = loadImage("spaceship3.png");
+    ship = forwardShip;
   
     pop = new Popup();
 }
@@ -243,7 +420,7 @@ class GameScreen {
       lifespan = 255.0;
       origin = position.copy();
       particles = new ArrayList<Particle>();
-      for (int i = 0; i < 40; i ++)
+      for (int i = 0; i < 50; i ++)
         particles.add(new Particle(origin));
     }
 
@@ -255,7 +432,7 @@ class GameScreen {
       lifespan -= 4.0;
     }
     
-    // Is the particle system still useful?
+    // Is the particle still useful?
     boolean isDead() {
       if (lifespan < 0.0) {
         return true;
@@ -295,7 +472,7 @@ class GameScreen {
           break;
         case "wall":
           rect(xpos, 0, 30, ypos);
-          rect(xpos, ypos + 250, 30, height - ypos - 250);
+          rect(xpos, ypos + (gameHeight * 5) / 16, 30, gameHeight);
           break;
         case "spinner":
           // xradius acts as radius
@@ -306,10 +483,7 @@ class GameScreen {
             vertex(xpos + -(xradius * cos(yradius)), ypos - xradius * sin(yradius));
             vertex(xpos - xradius * cos(yradius + PI / 30), ypos - xradius * sin(yradius + PI / 30));       
           endShape();
-          if (xradius % 2 == 1)
-            yradius += PI / 30;
-          else
-            yradius -= PI / 30;
+          yradius += PI / 30;
       }
     }
   }
@@ -343,8 +517,8 @@ class GameScreen {
     * Player Consctructor
     * x-position y-position, radius, speed
     *******************************************/
-    Player(float x, float y, float r, float s) {
-      super(x, y, r, r, "rectangle");
+    Player(float x, float y, float xr, float yr, float s) {
+      super(x, y, xr, yr, "rectangle");
       speedMult = s;
       vSpeed = 0; hSpeed = 0;
     }
@@ -354,24 +528,39 @@ class GameScreen {
    *******************************************/
     void move() {
       if (!gameOver) {
-        if(up)
+        ship = forwardShip;
+        p1.xradius = forwardLength;
+        p1.yradius = forwardHeight;
+        if(up) {
+          ship = upShip;
+          p1.xradius = diagonalLength;
+          p1.yradius = diagonalLength;
           vSpeed = constrain(vSpeed + .1 * speedMult, -1, 1);
-        if(down)
+        }
+        if(down) {
+          ship = downShip;
+          p1.xradius = diagonalLength;
+          p1.yradius = diagonalLength;
           vSpeed = constrain(vSpeed - .1 * speedMult, -1, 1);
+        }
         if(right)
           hSpeed = constrain(hSpeed + .1 * speedMult, -1, 1);
         if(left)
           hSpeed = constrain(hSpeed - .1 * speedMult, -1, 1);
           
-        if (vSpeed < 0)
-          vSpeed += .05;
+        if (vSpeed < -0.05)
+          vSpeed += .03;
+        else if (vSpeed > 0.05)
+          vSpeed -= .03;
         else
-          vSpeed -= .05;
+          vSpeed = 0;
           
-        if (hSpeed < 0)
-          hSpeed += .05;
+        if (hSpeed < -0.05)
+          hSpeed += .03;
+        else if (hSpeed > 0.05)
+          hSpeed -= .03;
         else
-          hSpeed -= .05;
+          hSpeed = 0;
           
         ypos = constrain(ypos - vSpeed * 4, 0, height - yradius);
         xpos = constrain(xpos + hSpeed * 4, 0, width - xradius);
@@ -385,7 +574,7 @@ class GameScreen {
     void display() {
       move();
       fill(c);
-      super.display();
+      image(ship, xpos, ypos, xradius, yradius);
     }
   }
 
@@ -465,7 +654,7 @@ class GameScreen {
   }
   
   void createPowerUp() {
-    powerUps.add(new PowerUp(1100.0, random(100, height - 150), 30.0, "shield")); 
+    powerUps.add(new PowerUp(width + 300, random(100, height - 150), 30.0, "shield")); 
   }
   
   void createHazard() {
@@ -473,19 +662,19 @@ class GameScreen {
     
     switch (shape) {
      case "rectangle":
-       hazards.add(new Hazard(850.0, random(25, 775), random(30, 60), random(30, 60), 
+       hazards.add(new Hazard(width + 50, random(25, height - 55), random(30, 60), random(30, 60), 
                     hazardTypes[(int)random(0,3)], shape));
        break;
      case "circle":
-       hazards.add(new Hazard(850.0, random(25, 775), 30.0, 30.0, 
+       hazards.add(new Hazard(width + 50, random(25, height - 25), 30.0, 30.0, 
                     hazardTypes[(int)random(0,3)], shape));
        break;
      case "wall":
-       hazards.add(new Hazard(850.0, random(0, height - 250), 30.0, 30.0, 
+       hazards.add(new Hazard(width + 50, random(0, height - 250), 30.0, 30.0, 
                     "straight", shape));
        break;
      case "spinner":
-       hazards.add(new Hazard(850.0, random(25, 775), random(50, 100), 0, 
+       hazards.add(new Hazard(width + 50, random(25, height - 25), random(50, 100), 0, 
                     "straight", shape));
        break;
      default:
@@ -502,16 +691,15 @@ class GameScreen {
       background(#a5a5a5);
     
       text(score, 10, 25);
-    
-      //After "Play" is clicked
-      menumusic.stop();
-      //bmusic.loop();    //background   
-    
+
       distanceCheck();
 
       displayPowerUps();
       p1.display();
       displayHazards();
+      displayParticles();
+    } else {
+      background(#a5a5a5);
       displayParticles();
     }
   }
@@ -594,12 +782,14 @@ class GameScreen {
        stroke(#000000);
        return true;
      }
-     gameOver = true;
-     paused = true;
-     //After Collision
-     bmusic.stop();
-     boom.play();
-     pop.display();
+     if (!gMode) {
+       gameOver = true;
+       paused = true;
+       //After Collision
+       bmusic.stop();
+       explosions.add(new ParticleSystem(new PVector(p1.xpos, p1.ypos)));
+       pop.display();
+     }
    }
     
    return false; 
@@ -617,6 +807,8 @@ class GameScreen {
     
     float dist = sqrt(sq(difX) + sq(difY));
     
+    if(gMode) { return false; }
+    
     if (dist < h.xradius + p.xradius) {
        p.c = #ff0000;
        hazardSpeed = 0;
@@ -631,18 +823,18 @@ class GameScreen {
     PVector points[]= new PVector[7];
     
     float theta = hazard.yradius + PI / 60;
-    float endx1 = hazard.xpos + hazard.xradius * cos(theta);
-    float endy1 = hazard.ypos + hazard.xradius * sin(theta);
-    float endx2 = hazard.xpos - hazard.xradius * cos(theta);
-    float endy2 = hazard.ypos - hazard.xradius * sin(theta);
+    float endx1 = hazard.xradius * cos(theta);
+    float endy1 = hazard.xradius * sin(theta);
+    float endx2 = hazard.xradius * cos(theta);
+    float endy2 = hazard.xradius * sin(theta);
     
-    points[0] = new PVector(endx1, endy1);
-    points[1] = new PVector(endx1 * 0.33, endy1 * 0.33);
-    points[2] = new PVector(endx1 * 0.67, endy1 * 0.67);
-    points[3] = new PVector((endx1 + endx2) * 0.5, (endy1 - endy2) * 0.5);
-    points[4] = new PVector(endx2 * 0.33, endy2 * 0.33);
-    points[5] = new PVector(endx2 * 0.67, endy2 * 0.67);
-    points[6] = new PVector(endx2, endy2);
+    points[0] = new PVector(endx1 + hazard.xpos, endy1 + hazard.ypos);
+    points[1] = new PVector(hazard.xpos + endx1 * 0.33, hazard.ypos + endy1 * 0.33);
+    points[2] = new PVector(hazard.xpos + endx1 * 0.67, hazard.ypos + endy1 * 0.67);
+    points[3] = new PVector(hazard.xpos, hazard.ypos);
+    points[4] = new PVector(hazard.xpos - endx2 * 0.33, hazard.ypos - endy2 * 0.33);
+    points[5] = new PVector(hazard.xpos - endx2 * 0.67, hazard.ypos - endy2 * 0.67);
+    points[6] = new PVector(hazard.xpos - endx2, hazard.ypos - endy2);
     
     for (int i = 0; i < points.length; i ++) {
       PVector point = points[i];
@@ -729,35 +921,33 @@ class Popup {
   }
   
   void display() {
-    background(#a5a5a5);
+    background(#0069b1);
     if (lbConnection) {
-      if (lb.scoreCheck(game.score)) {
+      if (lb.scoreCheck(game.score)) {  // If you are connected to leaderboards and you got a high score...
         highScore = true;
         textSize(32);
         text("You Made The Leaderboards with " + game.score + " points!", 100, 50);
-        text("Click to enter initials", 100, 200);
-        text("Click to submit score", 450, 200);
+        Initials.setPosition(100, 200).show();
+        Submit.setPosition(300, 200).show();
         text(initials, 400, 100);        
-        text("Play again", 100, 300);
-        text("Main menu", 100, 400);
+        PlayAgain.setPosition(100, 300).show();
+        Main_Menu.setPosition(100, 400).show();
       }
-      else {
+      else {  // If you are connected to the leaderboards and you did not get a high score...
         textSize(32);
         text("Your scored " + game.score + " points!", 100, 50);
-        text("Play again", 100, 300);
-        text("Main menu", 100, 400);
+        PlayAgain.setPosition(100, 300).show();
+        Main_Menu.setPosition(100, 400).show();
       }
     }
-    else {
+    else {  // If you are not connected to the leaderboards
       textSize(32);
       text("Your scored " + game.score + " points!", 100, 50);
-      text("Play again", 100, 300);
-      text("Main menu", 100, 400);
+      PlayAgain.setPosition(100, 300).show();
+      Main_Menu.setPosition(100, 400).show();
       textSize(20);
       text("Leaderboards unavailable", 500, 50);
     }
-    bmusic.stop();
-    //menumusic.loop();
   }
 }
 
@@ -771,81 +961,26 @@ class MenuScreen {
   String play = "play";
   String lb = "leaderboards"; // Strings to be displayed in menu
   String quit = "quit";
-
+  
   
   void display() {
-    background(#a5a5a5);
-    int xxx = 0;   //filler int to suppress errors, fill in with real vals
-    int yyy = 1;
     
-    // Play
-    if( 100 < mouseX && mouseX < 165 )
-    {
-      if( 70 < mouseY && mouseY <= 110 )
-       {
-        if( pHovered == false )
-        {
-        pHovered = true;
-        lHovered = false;
-        oHovered = false;
-        qHovered = false;
+background(#0069b1);
+    
+    Play.setPosition(100, 100).show();
+    Leaderboards.setPosition(100, 200).show();
+    Options.setPosition(100, 300).show();
+    Quit.setPosition(100, 400).show();
+    if (cp5.isMouseOver(cp5.getController("Play")) || cp5.isMouseOver(cp5.getController("Quit")) || cp5.isMouseOver(cp5.getController("Leaderboards")) || cp5.isMouseOver(cp5.getController("Options") ) ) {
+      if( isHovered == false ) {
+        isHovered = true;
         mousehover.play();
-      }
     }
-  }
- // Leaderboard
-  if( 100 <= mouseX && mouseX <= 300 )
-  {
-    if( 175 <= mouseY && mouseY <= 200 )
-    {
-      if( lHovered == false )
-      {
-        pHovered = false;
-        lHovered = true;
-        oHovered = false;
-        qHovered = false;
-        mousehover.play();
-      }
-    }
-  }
-  // Options (not implemented)
-  //if( 5 <= mouseX && mouseX <= 100 )
-  //{
-  //  if( 5 <= mouseY && mouseY <= 500 )
-  //  {
-  //    if( oHovered == false )
-  //    {
-  //      pHovered = false;
-  //      lHovered = false;
-  //      oHovered = true;
-  //      qHovered = false;
-  //      mousehover.play();
-  //    }
-  //  }
-  //}
-  // Quit
-  if( 100 <= mouseX && mouseX <= 160 )
-  {
-    if( 270 <= mouseY && mouseY <= 310 )
-    {
-      if( qHovered == false )
-      {
-        pHovered = false;
-        lHovered = false;
-        oHovered = false;
-        qHovered = true;
-        mousehover.play();
-      }
-    }
-  }
-
-    textSize(32);
-    text(play, 100, 100);
-    text(lb, 100, 200);
-    text(quit, 100, 300);
+  } else {
+    isHovered = false;
   }
 }
-
+}
 /********************************************************
 * Class for the Leaderboard Screen
 *
@@ -889,8 +1024,16 @@ class Leaderboard {
     background(#a5a5a5);
     textSize(30);
     text("HIGH SCORES", 300, 30);
-    text("Back to main menu", 300, 570);
     
+    MainMenu.setPosition(300, 570).show();
+    if(cp5.isMouseOver(cp5.getController("MainMenu"))){
+      if( isHovered == false ) {
+        isHovered = true;
+        mousehover.play();
+      }
+    } else {
+      isHovered = false;
+    }
     // Grab entries from db and display
     mysql.query("select * from Leaderboard order by points desc");
     for (int j = 0; j < 2; j++) {
@@ -953,4 +1096,30 @@ class Leaderboard {
   }
 }
 
-// -------------------------- Player Movement -----------------------------------
+class Options {
+  Options() {
+    
+  }
+  
+  void display() {
+    background(#0069b1);
+    Volume.setPosition(100, 100).setSize(100, 20).setRange(0, 100).setNumberOfTickMarks(100).show();
+    SoundOn.setPosition(100, 200).show();
+    SoundOff.setPosition(100, 250).show();
+    MainMenu.setPosition(300, 570).show();
+    if(cp5.isMouseOver(cp5.getController("MainMenu")) || cp5.isMouseOver(cp5.getController("SoundOn")) || cp5.isMouseOver(cp5.getController("SoundOff"))){
+      if( isHovered == false ) {
+        isHovered = true;
+        mousehover.play();
+      }
+    } else {
+      isHovered = false;
+    }
+    // Fullscreen - button
+      // 
+    // Color scheme - radio
+      // Change background(#0069b1) in all display() methods to global int/color variable
+    // Difficulty - radio
+      // Control speed/scoring with global variable
+  }
+}
