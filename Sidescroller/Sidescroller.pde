@@ -35,6 +35,8 @@ controlP5.Bang Submit;
 controlP5.Slider Volume;
 //controlP5.CheckBox Sound;
 
+PImage[] explosion;
+
 void setup() {
     // Variable Initialization
   game = new GameScreen();
@@ -78,6 +80,14 @@ void setup() {
   size(800,600);
   background(#0069b1);
     
+    explosion = new PImage[24];
+    
+    for(int i = 1; i < 25; i ++) {
+      if (i < 10)
+        explosion[i - 1] = loadImage("explosion0" + i + ".png");
+      else
+        explosion[i - 1] = loadImage("explosion" + i + ".png");
+    }
   
     // Create strings with sound file names
     String sMenuMusic = "MenuMusic.mp3";
@@ -699,8 +709,10 @@ class GameScreen {
       displayHazards();
       displayParticles();
     } else {
-      background(#a5a5a5);
-      displayParticles();
+      for (int i = 0; i < 24; i ++) {
+         image(explosion[i], 0, 0, width, height);
+         delay(40);
+      }
     }
   }
   
@@ -787,7 +799,6 @@ class GameScreen {
        paused = true;
        //After Collision
        bmusic.stop();
-       explosions.add(new ParticleSystem(new PVector(p1.xpos, p1.ypos)));
        pop.display();
      }
    }
